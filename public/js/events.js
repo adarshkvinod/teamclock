@@ -2,6 +2,7 @@ import { S, clearTokenStorage, TASK_TYPES, TYPES, EMPLOYEE_ROLES, ROLES } from "
 import { $, uid, user, active, weekStart, day, tname, hrs, worked, esc } from "./utils.js";
 import { db, authenticate } from "./api.js";
 import { toast } from "./toast.js";
+import { drawDashboardCharts } from "./charts.js";
 
 export function bindEvents(me) {
     const on = (id, fn) => {
@@ -362,6 +363,44 @@ export function bindEvents(me) {
         a.click();
         toast.success("Timesheet report downloaded successfully.", "Export Ready");
     });
+    // Chart Filter Dropdown Interaction
+  const filterDropdown = $("#chartFilterDropdown");
+  const filterBtn = $("#chartFilterBtn");
+  const filterLabel = $("#chartFilterLabel");
+  const rangeSubtitle = $("#chartRangeSubtitle");
+
+  if (filterBtn && filterDropdown) {
+    filterBtn.onclick = (e) => {
+      e.stopPropagation();
+      filterDropdown.classList.toggle("open");
+    };
+
+    filterDropdown.querySelectorAll(".chart-filter-opt").forEach((opt) => {
+      opt.onclick = (e) => {
+        e.stopPropagation();
+        const days = parseInt(opt.dataset.days, 10);
+        const labelText = opt.querySelector("span").textContent;
+
+        filterDropdown.querySelectorAll(".chart-filter-opt").forEach((o) => {
+          o.classList.remove("active");
+          const chk = o.querySelector(".opt-check");
+          if (chk) chk.remove();
+        });
+
+        opt.classList.add("active");
+        opt.insertAdjacentHTML(
+          "beforeend",
+          `<svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`
+        );
+
+        if (filterLabel) filterLabel.textContent = labelText;
+        if (rangeSubtitle) rangeSubtitle.textContent = `Daily hours logged across the ${labelText.toLowerCase()}`;
+        filterDropdown.classList.remove("open");
+
+        drawDashboardCharts(days);
+      };
+    });
+  }
 }
 
 // Global Event Delegation for Edit Employee Modal

@@ -15,10 +15,14 @@ export function clearCharts() {
   }
 }
 
-export function drawDashboardCharts() {
-  const days = [...Array(7)].map((_, i) => {
+let currentRangeDays = 7;
+
+export function drawDashboardCharts(daysCount = currentRangeDays) {
+  currentRangeDays = daysCount;
+
+  const days = [...Array(daysCount)].map((_, i) => {
     const d = new Date();
-    d.setDate(d.getDate() - 6 + i);
+    d.setDate(d.getDate() - (daysCount - 1) + i);
     return day(d);
   });
 
@@ -35,9 +39,8 @@ export function drawDashboardCharts() {
   const ctxBar = document.getElementById("barChartDaily");
   if (ctxBar) {
     if (barChartInstance) {
-      // In-place smooth update without flash
       barChartInstance.data.labels = days.map((d) =>
-        new Date(d).toLocaleDateString([], { weekday: "short" })
+        new Date(d).toLocaleDateString([], { month: "short", day: "numeric" })
       );
       barChartInstance.data.datasets[0].data = dailyHours;
       barChartInstance.update("none");
@@ -45,7 +48,9 @@ export function drawDashboardCharts() {
       barChartInstance = new Chart(ctxBar, {
         type: "bar",
         data: {
-          labels: days.map((d) => new Date(d).toLocaleDateString([], { weekday: "short" })),
+          labels: days.map((d) =>
+            new Date(d).toLocaleDateString([], { month: "short", day: "numeric" })
+          ),
           datasets: [
             {
               label: "Hours Logged",
@@ -53,7 +58,7 @@ export function drawDashboardCharts() {
               backgroundColor: "#073b28",
               hoverBackgroundColor: "#10b981",
               borderRadius: 8,
-              barThickness: 28
+              barThickness: daysCount > 14 ? 14 : 26
             }
           ]
         },

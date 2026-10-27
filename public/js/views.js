@@ -194,11 +194,26 @@ export function dashboardView() {
           <div class="card-header-row">
             <div>
               <h3>Working Hours Activity</h3>
-              <p>Daily hours logged across the last 7 days</p>
+              <p id="chartRangeSubtitle">Daily hours logged across the last 7 days</p>
             </div>
-            <select class="select-filter">
-              <option>Last 7 days</option>
-            </select>
+            <div class="chart-filter-dropdown" id="chartFilterDropdown">
+              <button type="button" class="chart-filter-btn" id="chartFilterBtn">
+                <span id="chartFilterLabel">Last 7 days</span>
+                <svg class="chart-filter-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="chart-filter-menu">
+                <button type="button" class="chart-filter-opt active" data-days="7">
+                  <span>Last 7 days</span>
+                  <svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button type="button" class="chart-filter-opt" data-days="14">
+                  <span>Last 14 days</span>
+                </button>
+                <button type="button" class="chart-filter-opt" data-days="30">
+                  <span>Last 30 days</span>
+                </button>
+              </div>
+            </div>
           </div>
           <div style="height: 270px;">
             <canvas id="barChartDaily"></canvas>

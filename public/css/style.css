@@ -1436,3 +1436,111 @@ body {
   background: var(--accent-emerald-subtle);
   color: #065f46;
 }
+/* ================= CUSTOM CHART FILTER DROPDOWN ================= */
+.chart-filter-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.chart-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.chart-filter-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.chart-filter-dropdown.open .chart-filter-btn {
+  border-color: var(--accent-emerald);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.chart-filter-chevron {
+  width: 14px;
+  height: 14px;
+  stroke: var(--text-muted);
+  stroke-width: 2.2;
+  fill: none;
+  transition: transform 0.2s ease;
+}
+
+.chart-filter-dropdown.open .chart-filter-chevron {
+  transform: rotate(180deg);
+}
+
+.chart-filter-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 150px;
+  background: #ffffff;
+  border-radius: var(--radius-md);
+  padding: 6px;
+  box-shadow: 0 14px 32px -4px rgba(7, 59, 40, 0.16), 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-subtle);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.chart-filter-dropdown.open .chart-filter-menu {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.chart-filter-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.chart-filter-opt:hover {
+  background: #f8fafc;
+  color: var(--primary-pine);
+}
+
+.chart-filter-opt.active {
+  background: var(--bg-sage);
+  color: var(--primary-pine);
+  font-weight: 700;
+}
+
+.chart-filter-opt .opt-check {
+  width: 14px;
+  height: 14px;
+  stroke: var(--primary-pine);
+  stroke-width: 2.5;
+  fill: none;
+}
