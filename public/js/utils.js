@@ -44,11 +44,14 @@ export const weekStart = () => {
 export const worked = (s) =>
   (s.end || Date.now()) - s.start - (s.breaks || []).reduce((a, b) => a + ((b.e || s.end || Date.now()) - b.s), 0);
 
-export const user = (id) => S.users.find((u) => u.id === id);
+export const user = (id) => S.users?.find((u) => u.id === id);
 
-export const tname = (id) => S.tasks.find((t) => t.id === id)?.title || id || "–";
+export const pname = (id) =>
+  S.projects?.find((p) => (p.id || p._id) === id)?.name || id || "–";
 
-export const active = (id) => S.sessions.find((s) => s.uid === id && !s.end);
+export const tname = (id) => S.tasks?.find((t) => t.id === id)?.title || id || "–";
+
+export const active = (id) => S.sessions?.find((s) => s.uid === id && !s.end);
 
 export function tstate(t) {
   if (t.status === "Done") return ["Done", "done"];
@@ -61,4 +64,37 @@ export function tstate(t) {
 export function getFormattedDate() {
   const options = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
   return new Date().toLocaleDateString("en-US", options);
+}
+
+/**
+ * Toggles loading state on any button element and freezes width to prevent layout jump.
+ */
+export function setButtonLoading(btn, isLoading) {
+  if (!btn) return;
+  if (isLoading) {
+    btn.style.width = `${btn.offsetWidth}px`;
+    btn.disabled = true;
+    btn.classList.add("is-loading");
+  } else {
+    btn.style.width = "";
+    btn.disabled = false;
+    btn.classList.remove("is-loading");
+  }
+}
+
+/**
+ * Runs an async task with automatic button loading state and guaranteed cleanup.
+ * @param {HTMLElement|string} btnOrSelector The button DOM node or CSS selector
+ * @param {Function} asyncFn The async operation to execute
+ */
+export async function withLoading(btnOrSelector, asyncFn) {
+  const btn = typeof btnOrSelector === "string" ? document.querySelector(btnOrSelector) : btnOrSelector;
+  if (!btn || btn.disabled) return;
+
+  setButtonLoading(btn, true);
+  try {
+    return await asyncFn();
+  } finally {
+    setButtonLoading(btn, false);
+  }
 }

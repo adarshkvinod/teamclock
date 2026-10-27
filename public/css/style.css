@@ -1544,3 +1544,46 @@ body {
   stroke-width: 2.5;
   fill: none;
 }
+/* ================= REUSABLE BUTTON LOADING ================= */
+button.is-loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none !important;
+  cursor: not-allowed;
+  opacity: 0.88;
+}
+
+/* Spinner for dark buttons (e.g. .btn-primary, .btn-action-del) */
+button.is-loading::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin: -8px 0 0 -8px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: btnSpinner 0.65s linear infinite;
+}
+
+/* Spinner adaptation for light / secondary / outline buttons */
+button.is-loading.btn-light,
+button.is-loading.select-filter,
+button.is-loading.btn-secondary {
+  border-color: #cbd5e1;
+}
+
+button.is-loading.btn-light::after,
+button.is-loading.select-filter::after,
+button.is-loading.btn-secondary::after {
+  border-color: rgba(7, 59, 40, 0.18);
+  border-top-color: var(--primary-pine, #073b28);
+}
+
+@keyframes btnSpinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
