@@ -51,13 +51,57 @@ export function bindEvents(me) {
         toast.success("Shift ended.", "Clocked Out");
     });
 
-    // Time tracker screen actions
+    // Toggle between Assigned Tasks dropdown and Custom Task input
+    const taskSelectWrap = $("#taskSelectWrap");
+    const taskCustomWrap = $("#taskCustomWrap");
+    const customWk = $("#customWk");
+    const wk = $("#wk");
+    const toggleBtn = $("#btnToggleTaskMode");
+
+    if (toggleBtn) {
+        toggleBtn.onclick = () => {
+            const isCustom = taskCustomWrap.style.display !== "none";
+            if (isCustom) {
+                taskCustomWrap.style.display = "none";
+                taskSelectWrap.style.display = "block";
+                if (wk.value === "__custom__") wk.value = "";
+                toggleBtn.textContent = "✏️ Type custom task";
+            } else {
+                taskSelectWrap.style.display = "none";
+                taskCustomWrap.style.display = "block";
+                toggleBtn.textContent = "📋 Choose assigned task";
+                customWk.focus();
+            }
+        };
+    }
+
+    if (wk) {
+        wk.onchange = () => {
+            if (wk.value === "__custom__") {
+                taskSelectWrap.style.display = "none";
+                taskCustomWrap.style.display = "block";
+                if (toggleBtn) toggleBtn.textContent = "📋 Choose assigned task";
+                customWk.focus();
+            }
+        };
+    }
+
+    // Time tracker: Clock In
     on("#ci", async () => {
         try {
+            const isCustom = taskCustomWrap && taskCustomWrap.style.display !== "none";
+            let chosenTask = "";
+
+            if (isCustom) {
+                chosenTask = customWk ? customWk.value.trim() : "";
+            } else {
+                chosenTask = wk && wk.value !== "__custom__" ? wk.value : "";
+            }
+
             await db.doc("sessions/" + uid()).set({
                 uid: me.id,
                 type: $("#wt").value,
-                taskId: $("#wk").value,
+                taskId: chosenTask,
                 start: Date.now(),
                 end: null,
                 breaks: []

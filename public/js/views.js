@@ -2,21 +2,21 @@ import { S, EMPLOYEE_ROLES, TASK_TYPES, TYPES } from "./state.js";
 import { esc, user, tname, active, dur, hrs, worked, day, weekStart, tstate, getFormattedDate } from "./utils.js";
 
 export function getPageTitle(tab) {
-  switch (tab) {
-    case "dashboard": return "Productivity Report";
-    case "tasks": return "Tasks & Deadlines";
-    case "track": return "Time Tracker";
-    case "sheet": return "Weekly Timesheets";
-    case "team": return "Team Directory";
-    default: return "Overview";
-  }
+    switch (tab) {
+        case "dashboard": return "Productivity Report";
+        case "tasks": return "Tasks & Deadlines";
+        case "track": return "Time Tracker";
+        case "sheet": return "Weekly Timesheets";
+        case "team": return "Team Directory";
+        default: return "Overview";
+    }
 }
 
 export function layoutView(me, currentContent) {
-  const adm = me.role === "admin";
-  const s = active(me.id);
+    const adm = me.role === "admin";
+    const s = active(me.id);
 
-  return `
+    return `
     <div class="dashboard-layout">
       <aside class="sidebar">
         <div>
@@ -75,7 +75,7 @@ export function layoutView(me, currentContent) {
           ${s
             ? `<button class="btn-sidebar-clock btn-out" id="sideBtnClockOut">Clock Out</button>`
             : `<button class="btn-sidebar-clock" id="sideBtnClockIn">Start Shift</button>`
-          }
+        }
         </div>
       </aside>
 
@@ -112,16 +112,16 @@ export function layoutView(me, currentContent) {
 }
 
 export function dashboardView() {
-  const ws = weekStart(),
-    wkS = S.sessions.filter((x) => (x.end || Date.now()) >= ws);
-  const totalHours = wkS.reduce((a, x) => a + worked(x), 0);
-  const clockedInCount = S.sessions.filter((x) => !x.end).length;
-  const doneTasks = S.tasks.filter((t) => t.status === "Done").length;
-  const overdueTasks = S.tasks.filter((t) => tstate(t)[1] === "over").length;
-  const activeWorkers = S.sessions.filter((x) => !x.end);
-  const categories = TASK_TYPES || TYPES;
+    const ws = weekStart(),
+        wkS = S.sessions.filter((x) => (x.end || Date.now()) >= ws);
+    const totalHours = wkS.reduce((a, x) => a + worked(x), 0);
+    const clockedInCount = S.sessions.filter((x) => !x.end).length;
+    const doneTasks = S.tasks.filter((t) => t.status === "Done").length;
+    const overdueTasks = S.tasks.filter((t) => tstate(t)[1] === "over").length;
+    const activeWorkers = S.sessions.filter((x) => !x.end);
+    const categories = TASK_TYPES || TYPES;
 
-  return `
+    return `
     <div class="dashboard-grid">
       <div class="grid-col-main">
         <div class="kpi-matrix">
@@ -222,14 +222,14 @@ export function dashboardView() {
           </div>
           <div class="side-breakdown-list">
             ${categories.map((type) => {
-              const count = Math.round(wkS.filter((x) => x.type === type).reduce((a, b) => a + worked(b), 0) / 36e5);
-              return `
+        const count = Math.round(wkS.filter((x) => x.type === type).reduce((a, b) => a + worked(b), 0) / 36e5);
+        return `
                 <div class="side-breakdown-item">
                   <span>${esc(type)}</span>
                   <span class="badge-stat">${count} hrs</span>
                 </div>
               `;
-            }).join("")}
+    }).join("")}
           </div>
         </div>
 
@@ -237,11 +237,10 @@ export function dashboardView() {
           <h3>Team Clocked In</h3>
           <p style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">Real-time active shifts</p>
           <div class="worker-pill-list">
-            ${
-              activeWorkers.length
-                ? activeWorkers
-                    .map(
-                      (w) => `
+            ${activeWorkers.length
+            ? activeWorkers
+                .map(
+                    (w) => `
                 <div class="worker-item-row">
                   <div class="worker-info-meta">
                     <span class="status-indicator"></span>
@@ -250,13 +249,13 @@ export function dashboardView() {
                       <div class="worker-role">${esc(w.type)}</div>
                     </div>
                   </div>
-                  <span class="tag-status track">${dur(worked(w))}</span>
+                  <span class="tag-status track" data-worker-timer="${w.id}">${dur(worked(w))}</span>
                 </div>
               `
-                    )
-                    .join("")
-                : '<p style="color: var(--text-light); font-size: 12px; margin-top: 10px;">Nobody is currently clocked in.</p>'
-            }
+                )
+                .join("")
+            : '<p style="color: var(--text-light); font-size: 12px; margin-top: 10px;">Nobody is currently clocked in.</p>'
+        }
           </div>
         </div>
       </div>
@@ -265,21 +264,20 @@ export function dashboardView() {
 }
 
 export function tasksView(adm) {
-  const emps = S.users.filter((u) => u.role !== "admin");
-  const ts = [...S.tasks].sort((a, b) => a.deadline.localeCompare(b.deadline));
-  const categories = TASK_TYPES || TYPES;
+    const emps = S.users.filter((u) => u.role !== "admin");
+    const ts = [...S.tasks].sort((a, b) => a.deadline.localeCompare(b.deadline));
+    const categories = TASK_TYPES || TYPES;
 
-  const getStatusClass = (status) => {
-    if (status === "Done") return "done";
-    if (status === "In progress") return "progress";
-    return "todo";
-  };
+    const getStatusClass = (status) => {
+        if (status === "Done") return "done";
+        if (status === "In progress") return "progress";
+        return "todo";
+    };
 
-  return `
+    return `
     <div class="full-width-card">
-      ${
-        adm
-          ? `
+      ${adm
+            ? `
         <h3 style="margin-bottom: 6px;">Assign New Task</h3>
         <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 18px;">Set task title, category, assignee, and deadline</p>
         <div class="form-grid-3">
@@ -309,8 +307,8 @@ export function tasksView(adm) {
           <span class="err" id="te" style="color: var(--accent-red); font-size: 12px;"></span>
         </div>
       `
-          : ""
-      }
+            : ""
+        }
 
       <h3>All Tasks (${ts.length})</h3>
       <div style="overflow-x: auto;">
@@ -327,13 +325,12 @@ export function tasksView(adm) {
             </tr>
           </thead>
           <tbody>
-            ${
-              ts.length
-                ? ts
-                    .map((t) => {
-                      const [lbl, cls] = tstate(t);
-                      const currentClass = getStatusClass(t.status);
-                      return `
+            ${ts.length
+            ? ts
+                .map((t) => {
+                    const [lbl, cls] = tstate(t);
+                    const currentClass = getStatusClass(t.status);
+                    return `
                   <tr>
                     <td style="font-weight: 600;">${esc(t.title)}</td>
                     <td><span class="growth-badge subtle">${esc(t.type || "General")}</span></td>
@@ -349,17 +346,16 @@ export function tasksView(adm) {
                         <div class="status-dropdown-menu">
                           ${["To do", "In progress", "Done"]
                             .map((opt) => {
-                              const optClass = getStatusClass(opt);
-                              const isSelected = opt === t.status;
-                              return `
+                                const optClass = getStatusClass(opt);
+                                const isSelected = opt === t.status;
+                                return `
                                 <button type="button" class="status-option-btn ${isSelected ? "selected" : ""}" data-status-val="${opt}">
                                   <span class="status-dot status-trigger-${optClass}"></span>
                                   <span>${opt}</span>
-                                  ${
-                                    isSelected
-                                      ? `<svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`
-                                      : ""
-                                  }
+                                  ${isSelected
+                                        ? `<svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`
+                                        : ""
+                                    }
                                 </button>
                               `;
                             })
@@ -370,10 +366,10 @@ export function tasksView(adm) {
                     <td><span class="tag-status ${cls}">${lbl}</span></td>${adm ? `<td><button class="btn-action-del" data-dt="${t.id}">Delete</button></td>` : ""}
                   </tr>
                 `;
-                    })
-                    .join("")
-                : '<tr><td colspan="7" style="text-align: center; color: var(--text-light);">No tasks found.</td></tr>'
-            }
+                })
+                .join("")
+            : '<tr><td colspan="7" style="text-align: center; color: var(--text-light);">No tasks found.</td></tr>'
+        }
           </tbody>
         </table>
       </div>
@@ -382,10 +378,10 @@ export function tasksView(adm) {
 }
 
 export function teamView() {
-  const emps = S.users.filter((u) => u.role !== "admin");
-  const availableRoles = EMPLOYEE_ROLES;
+    const emps = S.users.filter((u) => u.role !== "admin");
+    const availableRoles = EMPLOYEE_ROLES;
 
-  return `
+    return `
     <div class="full-width-card">
       <h3 style="margin-bottom: 6px;">Create Employee Account</h3>
       <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 18px;">Add team members and assign one or multiple roles</p>
@@ -409,7 +405,7 @@ export function teamView() {
         <label>Assigned Roles (Click to select multiple)</label>
         <div class="role-selector-group">
           ${availableRoles.map(
-            (role) => `
+        (role) => `
             <label class="role-checkbox-pill">
               <input type="checkbox" name="empRole" value="${esc(role)}">
               <span class="role-pill-content">
@@ -418,7 +414,7 @@ export function teamView() {
               </span>
             </label>
           `
-          ).join("")}
+    ).join("")}
         </div>
       </div>
 
@@ -440,12 +436,11 @@ export function teamView() {
             </tr>
           </thead>
           <tbody>
-            ${
-              emps.length
-                ? emps
-                    .map((u) => {
-                      const userRoles = u.roles && u.roles.length ? u.roles : (u.workType ? u.workType.split(",").map(r => r.trim()) : []);
-                      return `
+            ${emps.length
+            ? emps
+                .map((u) => {
+                    const userRoles = u.roles && u.roles.length ? u.roles : (u.workType ? u.workType.split(",").map(r => r.trim()) : []);
+                    return `
                 <tr>
                   <td style="font-weight: 600;">${esc(u.name)}</td>
                   <td style="color: var(--text-muted);">${esc(u.username)}</td>
@@ -455,11 +450,10 @@ export function teamView() {
                     </div>
                   </td>
                   <td>
-                    ${
-                      active(u.id)
-                        ? '<span class="tag-status done">Clocked In</span>'
-                        : '<span class="tag-status" style="background:#f1f5f9; color:#64748b;">Offline</span>'
-                    }
+                    ${active(u.id)
+                            ? '<span class="tag-status done">Clocked In</span>'
+                            : '<span class="tag-status" style="background:#f1f5f9; color:#64748b;">Offline</span>'
+                        }
                   </td>
                   <td>
                     <button class="select-filter" data-edit-emp="${u.id}" style="margin-right: 6px;">Edit</button>
@@ -468,10 +462,10 @@ export function teamView() {
                   </td>
                 </tr>
               `;
-                    })
-                    .join("")
-                : '<tr><td colspan="5" style="text-align: center; color: var(--text-light);">No employees registered yet.</td></tr>'
-            }
+                })
+                .join("")
+            : '<tr><td colspan="5" style="text-align: center; color: var(--text-light);">No employees registered yet.</td></tr>'
+        }
           </tbody>
         </table>
       </div>
@@ -480,61 +474,76 @@ export function teamView() {
 }
 
 export function trackView(me) {
-  const s = active(me.id),
-    b = s && (s.breaks || []).find((x) => !x.e);
-  const mine = S.tasks.filter((t) => t.assignee === me.id && t.status !== "Done");
-  const categories = TASK_TYPES || TYPES;
+    const s = active(me.id),
+        b = s && (s.breaks || []).find((x) => !x.e);
+    const mine = S.tasks.filter((t) => t.assignee === me.id && t.status !== "Done");
+    const categories = TASK_TYPES || TYPES;
 
-  return `
+    return `
     <div class="full-width-card" style="max-width: 600px; margin: 0 auto;">
       <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 6px;">Shift Workstation</h2>
       <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px;">Track your time, select working task, and take breaks</p>
 
-      ${
-        s
-          ? `
+      ${s
+            ? `
         <div style="background: var(--bg-app); border-radius: var(--radius-lg); padding: 24px; text-align: center; margin-bottom: 20px;">
           <div style="color: var(--text-muted); font-size: 13px; font-weight: 600;">Clocked in as ${esc(s.type)}</div>
           <div style="font-size: 48px; font-weight: 800; color: var(--primary-pine); margin: 8px 0;" id="tm">${dur(worked(s))}</div>
           <div style="color: var(--text-light); font-size: 12px;">Active Task: ${esc(tname(s.taskId))}</div>
         </div>
         <div style="display: flex; gap: 12px;">
-          ${
-            b
-              ? '<button class="btn-primary" id="bk" style="flex:1; background:var(--accent-amber);">Resume Work</button>'
-              : '<button class="select-filter" id="bk" style="flex:1;">Take a Break</button>'
-          }
+          ${b
+                ? '<button class="btn-primary" id="bk" style="flex:1; background:var(--accent-amber);">Resume Work</button>'
+                : '<button class="select-filter" id="bk" style="flex:1;">Take a Break</button>'
+            }
           <button class="btn-action-del" id="co" style="flex:1; padding: 12px; font-size: 14px;">End Shift (Clock Out)</button>
         </div>
       `
-          : `
+            : `
         <div class="input-group" style="margin-bottom: 16px;">
           <label>Work Type / Category</label>
           <select id="wt">
             ${categories.map((t) => `<option value="${t}">${t}</option>`).join("")}
           </select>
         </div>
+
         <div class="input-group" style="margin-bottom: 24px;">
-          <label>Working on Task (Optional)</label>
-          <select id="wk">
-            <option value="">– General Work / No specific task –</option>
-            ${mine.map((t) => `<option value="${t.id}">${esc(t.title)}</option>`).join("")}
-          </select>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">Working on Task (Optional)</label>
+            <button type="button" id="btnToggleTaskMode" class="btn-task-toggle">
+              ✏️ Type custom task
+            </button>
+          </div>
+
+          <!-- Select from assigned tasks -->
+          <div id="taskSelectWrap">
+            <select id="wk">
+              <option value="">– General Work / No specific task –</option>
+              ${mine.map((t) => `<option value="${t.id}">${esc(t.title)}</option>`).join("")}
+              <option value="__custom__">✏️ Custom task (type manually)...</option>
+            </select>
+          </div>
+
+          <!-- Or type custom task text -->
+          <div id="taskCustomWrap" style="display: none; margin-top: 6px;">
+            <input id="customWk" type="text" placeholder="e.g. Client call, Team standup, Quick bug fix...">
+          </div>
         </div>
+
         <button class="btn-primary" id="ci" style="width: 100%; padding: 14px; font-size: 15px;">Start Work Shift</button>
       `
-      }
+        }
     </div>
   `;
 }
 
 export function sheetView(adm, me) {
-  const ws = weekStart();
-  const rows = (adm ? S.sessions : S.sessions.filter((x) => x.uid === me.id && x.start >= ws)).sort(
-    (a, b) => b.start - a.start
-  );
+    const ws = weekStart();
+    const rows = (adm ? S.sessions : S.sessions.filter((x) => x.uid === me.id && x.start >= ws)).sort(
+        (a, b) => b.start - a.start
+    );
 
-  return `
+    return `
     <div class="full-width-card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <div>
@@ -559,11 +568,10 @@ export function sheetView(adm, me) {
             </tr>
           </thead>
           <tbody>
-            ${
-              rows.length
-                ? rows
-                    .map(
-                      (x) => `
+            ${rows.length
+            ? rows
+                .map(
+                    (x) => `
                 <tr>
                   ${adm ? `<td style="font-weight: 600;">${esc(user(x.uid)?.name || "Unknown")}</td>` : ""}
                   <td>${day(x.start)}</td>
@@ -575,10 +583,10 @@ export function sheetView(adm, me) {
                   <td style="font-weight: 700;">${hrs(worked(x))} h</td>
                 </tr>
               `
-                    )
-                    .join("")
-                : '<tr><td colspan="8" style="text-align: center; color: var(--text-light);">No time entries found.</td></tr>'
-            }
+                )
+                .join("")
+            : '<tr><td colspan="8" style="text-align: center; color: var(--text-light);">No time entries found.</td></tr>'
+        }
           </tbody>
         </table>
       </div>
@@ -587,7 +595,7 @@ export function sheetView(adm, me) {
 }
 
 export function loginView() {
-  return `
+    return `
     <div class="auth-wrapper">
       <div class="auth-card">
         <div class="auth-brand">
@@ -612,7 +620,7 @@ export function loginView() {
 }
 
 export function setupView() {
-  return `
+    return `
     <div class="auth-wrapper">
       <div class="auth-card">
         <div class="auth-brand">

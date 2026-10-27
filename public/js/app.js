@@ -15,10 +15,29 @@ import {
 import { bindEvents, bindAuthEvents } from "./events.js";
 
 function tick() {
-    const e = $("#sidebarTimer");
-    if (!e) return;
     const s = active(S.me);
-    if (s) e.textContent = dur(worked(s));
+    if (!s) return;
+
+    const currentDuration = dur(worked(s));
+
+    // 1. Shift Workstation main display (#tm from your screenshot)
+    const mainTimer = $("#tm");
+    if (mainTimer) {
+        mainTimer.textContent = currentDuration;
+    }
+
+    // 2. Sidebar live widget timer
+    const sidebarTimer = $("#sidebarTimer");
+    if (sidebarTimer) {
+        sidebarTimer.textContent = currentDuration;
+    }
+    // 3. Update any active teammate timers visible on the dashboard
+    document.querySelectorAll("[data-worker-timer]").forEach((el) => {
+        const session = S.sessions.find((x) => x.id === el.dataset.workerTimer);
+        if (session && !session.end) {
+            el.textContent = dur(worked(session));
+        }
+    });
 }
 
 function render() {

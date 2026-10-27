@@ -19,7 +19,7 @@ exports.clockIn = async (req, res) => {
     _id: id,
     uid: req.u.id,
     type: req.body.type,
-    taskId: str(req.body.taskId, 24),
+    taskId: str(req.body.taskId, 150), // Increased from 24 to 150 characters for custom task text
     start: Date.now(),
     end: null,
     breaks: []

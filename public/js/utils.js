@@ -46,7 +46,7 @@ export const worked = (s) =>
 
 export const user = (id) => S.users.find((u) => u.id === id);
 
-export const tname = (id) => S.tasks.find((t) => t.id === id)?.title || "–";
+export const tname = (id) => S.tasks.find((t) => t.id === id)?.title || id || "–";
 
 export const active = (id) => S.sessions.find((s) => s.uid === id && !s.end);
 
