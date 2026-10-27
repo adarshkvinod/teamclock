@@ -462,6 +462,7 @@ export function teamView() {
                     }
                   </td>
                   <td>
+                    <button class="select-filter" data-edit-emp="${u.id}" style="margin-right: 6px;">Edit</button>
                     <button class="select-filter" data-rp="${u.id}" style="margin-right: 6px;">Reset Password</button>
                     <button class="btn-action-del" data-du="${u.id}">Remove</button>
                   </td>

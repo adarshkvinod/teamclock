@@ -59,7 +59,7 @@ exports.updateEmployee = async (req, res) => {
 
   const update = {};
   if (str(req.body.name)) update.name = str(req.body.name);
-  
+
   if (Array.isArray(req.body.roles)) {
     const valid = req.body.roles.filter((r) => ROLES.includes(r));
     if (valid.length > 0) {
