@@ -3,13 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>TeamClock – Work Tracker</title>
+  <title>TeamClock – Work & Project Tracker</title>
+  <!-- Google Font: Plus Jakarta Sans for the exact modern dashboard look -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
   <div id="app">
-    <main><p class="mu">Loading…</p></main>
+    <div class="initial-loader">
+      <div class="loader-spinner"></div>
+      <p>Loading TeamClock...</p>
+    </div>
   </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="/js/app.js"></script>
 </body>

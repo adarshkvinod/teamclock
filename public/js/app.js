@@ -1,99 +1,86 @@
 const TYPES = ["Designer", "Project Manager", "Marketing", "Developer", "DevOps"];
-const S = { users: [], tasks: [], sessions: [], me: null, tab: null, ready: 0, isOwner: false };
-let TOK = null, charts = [], dirty = false;
+const S = { users: [], tasks: [], sessions: [], me: null, tab: null, ready: 0 };
+let TOK = null, charts = [];
 
 async function API(m, p, b) {
-    const r = await fetch("/api" + p, {
-        method: m,
-        headers: {
-            "Content-Type": "application/json",
-            ...(TOK ? { Authorization: "Bearer " + TOK } : {})
-        },
-        body: b ? JSON.stringify(b) : undefined
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) {
-        if (r.status === 401 && TOK) logout();
-        throw { message: j.error || "Request failed" };
-    }
-    return j;
+  const r = await fetch("/api" + p, {
+    method: m,
+    headers: {
+      "Content-Type": "application/json",
+      ...(TOK ? { Authorization: "Bearer " + TOK } : {})
+    },
+    body: b ? JSON.stringify(b) : undefined
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    if (r.status === 401 && TOK) logout();
+    throw { message: j.error || "Request failed" };
+  }
+  return j;
 }
 
 const db = {
-    doc: (p) => {
-        const [c, i] = p.split("/"), u = `/${c}/${i}`;
-        return {
-            set: (d) => API("PUT", u, d).then(load),
-            update: (d) => API("PATCH", u, d).then(load),
-            delete: () => API("DELETE", u).then(load)
-        };
-    }
-};
-
-const dl = {
-    save: ({ filename, data }) => {
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(new Blob([data], { type: "text/csv" }));
-        a.download = filename;
-        a.click();
-        return Promise.resolve();
-    }
+  doc: (p) => {
+    const [c, i] = p.split("/"), u = `/${c}/${i}`;
+    return {
+      set: (d) => API("PUT", u, d).then(load),
+      update: (d) => API("PATCH", u, d).then(load),
+      delete: () => API("DELETE", u).then(load)
+    };
+  }
 };
 
 async function load() {
-    if (!TOK) return;
-    const j = await API("GET", "/data");
-    Object.assign(S, j, { ready: 7 });
-    if (!user(S.me)) return logout();
-    refresh();
+  if (!TOK) return;
+  const j = await API("GET", "/data");
+  Object.assign(S, j, { ready: 7 });
+  if (!user(S.me)) return logout();
+  render();
 }
 
 function logout() {
-    TOK = null;
-    S.me = null;
-    S.tab = null;
-    S.users = [];
-    try {
-        localStorage.removeItem("tc_tok");
-        localStorage.removeItem("tc_me");
-    } catch (e) { }
-    render();
+  TOK = null;
+  S.me = null;
+  S.tab = null;
+  S.users = [];
+  try {
+    localStorage.removeItem("tc_tok");
+    localStorage.removeItem("tc_me");
+  } catch (e) {}
+  render();
 }
 
 async function auth(p, b) {
-    const j = await API("POST", p, b);
-    TOK = j.token;
-    S.me = j.id;
-    S.tab = null;
-    try {
-        localStorage.setItem("tc_tok", TOK);
-        localStorage.setItem("tc_me", j.id);
-    } catch (e) { }
-    await load();
+  const j = await API("POST", p, b);
+  TOK = j.token;
+  S.me = j.id;
+  S.tab = null;
+  try {
+    localStorage.setItem("tc_tok", TOK);
+    localStorage.setItem("tc_me", j.id);
+  } catch (e) {}
+  await load();
 }
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-
-// Robust ID generator: always produces an 18-character lowercase string
-const uid = () => "id" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+const uid = () => "id" + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
 
 const hrs = (ms) => (ms / 36e5).toFixed(1);
 const dur = (ms) => {
-    ms = Math.max(0, ms);
-    const s = Math.floor(ms / 1e3);
-    return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map((x) => String(x).padStart(2, "0")).join(":");
+  ms = Math.max(0, ms);
+  const s = Math.floor(ms / 1e3);
+  return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map((x) => String(x).padStart(2, "0")).join(":");
 };
-const fdt = (t) => (t ? new Date(t).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "–");
 const day = (t) => {
-    const d = new Date(t);
-    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const d = new Date(t);
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 };
 const weekStart = () => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-    return d.getTime();
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.getTime();
 };
 const worked = (s) => (s.end || Date.now()) - s.start - (s.breaks || []).reduce((a, b) => a + ((b.e || s.end || Date.now()) - b.s), 0);
 const user = (id) => S.users.find((u) => u.id === id);
@@ -101,117 +88,594 @@ const tname = (id) => S.tasks.find((t) => t.id === id)?.title || "–";
 const active = (id) => S.sessions.find((s) => s.uid === id && !s.end);
 
 function tstate(t) {
-    if (t.status === "Done") return ["Done", "done"];
-    const d = new Date(t.deadline + "T23:59:59").getTime();
-    if (d < Date.now()) return ["Overdue", "over"];
-    if (d - Date.now() < 864e5 * 2) return ["Due soon", "soon"];
-    return ["On track", ""];
+  if (t.status === "Done") return ["Done", "done"];
+  const d = new Date(t.deadline + "T23:59:59").getTime();
+  if (d < Date.now()) return ["Overdue", "over"];
+  if (d - Date.now() < 864e5 * 2) return ["Due soon", "soon"];
+  return ["On track", "track"];
+}
+
+function getFormattedDate() {
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  return new Date().toLocaleDateString('en-US', options);
 }
 
 async function init() {
-    try {
-        TOK = localStorage.getItem("tc_tok");
-        S.me = localStorage.getItem("tc_me");
-    } catch (e) { }
+  try {
+    TOK = localStorage.getItem("tc_tok");
+    S.me = localStorage.getItem("tc_me");
+  } catch (e) {}
 
-    try {
-        S.needsSetup = (await API("GET", "/state")).needsSetup;
-    } catch (e) {
-        $("#app").innerHTML = '<main><div class="card">Cannot reach the server. Check the deployment and environment variables.</div></main>';
-        return;
-    }
-
-    S.ready = 7;
-    if (TOK) {
-        try { await load(); } catch (e) { }
-    }
-
-    render();
-    setInterval(tick, 1000);
-    setInterval(() => {
-        if (TOK) load().catch(() => { });
-    }, 5000);
-}
-
-function refresh() {
-  if (S.ready < 7) return;
-  // Never wipe the form while on the team or tasks tab if inputs have text
-  if (S.tab === "team" || S.tab === "tasks") {
-    const en = $("#en"), nt = $("#nt");
-    if ((en && en.value) || (nt && nt.value)) {
-      dirty = true;
-      return;
-    }
-  }
-  const a = document.activeElement;
-  if (a && /INPUT|SELECT|BUTTON/.test(a.tagName) && a.closest("main")) {
-    dirty = true;
+  try {
+    S.needsSetup = (await API("GET", "/state")).needsSetup;
+  } catch (e) {
+    $("#app").innerHTML = `
+      <div class="auth-wrapper">
+        <div class="auth-card">
+          <h2>Server Unreachable</h2>
+          <p>Cannot reach the database. Please verify your MongoDB configuration.</p>
+        </div>
+      </div>`;
     return;
   }
-  render();
-}
 
-document.addEventListener("focusout", (e) => {
-  // Only trigger re-render if focus genuinely left the main container
-  if (dirty) {
-    setTimeout(() => {
-      const active = document.activeElement;
-      if (!active || !active.closest("main")) {
-        dirty = false;
-        render();
-      }
-    }, 150);
+  S.ready = 7;
+  if (TOK) {
+    try { await load(); } catch (e) {}
   }
-});
+  render();
+  setInterval(tick, 1000);
+}
 
 function tick() {
-    const e = $("#tm");
-    if (!e) return;
-    const s = active(S.me);
-    if (s) e.textContent = dur(worked(s));
+  const e = $("#sidebarTimer");
+  if (!e) return;
+  const s = active(S.me);
+  if (s) e.textContent = dur(worked(s));
 }
+
+/* ================= RENDERING ================= */
 
 function render() {
-    dirty = false;
-    charts.forEach((c) => c.destroy());
-    charts = [];
-    const me = user(S.me);
-    if (!me) return S.needsSetup ? setupView() : loginView();
+  charts.forEach((c) => c.destroy());
+  charts = [];
+  const me = user(S.me);
+  if (!me) return S.needsSetup ? setupView() : loginView();
 
-    const adm = me.role === "admin";
-    if (!S.tab) S.tab = adm ? "analytics" : "track";
+  const adm = me.role === "admin";
+  if (!S.tab) S.tab = adm ? "dashboard" : "track";
 
-    $("#app").innerHTML = `
-    <header>
-      <div class="logo">Team<span>Clock</span></div>
-      <div class="row">
-        <span class="mu">${esc(me.name)} · ${adm ? "Admin / Project Manager" : esc(me.workType)}</span>
-        <button id="out">Log out</button>
-      </div>
-    </header>
-    <main>${adm ? adminView() : empView(me)}</main>
+  const s = active(me.id);
+
+  $("#app").innerHTML = `
+    <div class="dashboard-layout">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div>
+          <div class="brand-wrapper">
+            <div class="brand-badge">T</div>
+            <div class="brand-title">TeamClock</div>
+          </div>
+
+          <div class="nav-section-label">Menu</div>
+          <ul class="nav-menu">
+            <li class="nav-item">
+              <button data-t="dashboard" class="${S.tab === 'dashboard' ? 'active' : ''}">
+                <svg viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+                <span>Dashboard</span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button data-t="tasks" class="${S.tab === 'tasks' ? 'active' : ''}">
+                <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span>Tasks &amp; Deadlines</span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button data-t="track" class="${S.tab === 'track' ? 'active' : ''}">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>Time Tracker</span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button data-t="sheet" class="${S.tab === 'sheet' ? 'active' : ''}">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span>Timesheets</span>
+              </button>
+            </li>
+          </ul>
+
+          ${adm ? `
+            <div class="nav-section-label">Management</div>
+            <ul class="nav-menu">
+              <li class="nav-item">
+                <button data-t="team" class="${S.tab === 'team' ? 'active' : ''}">
+                  <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  <span>Team Members</span>
+                </button>
+              </li>
+            </ul>
+          ` : ''}
+        </div>
+
+        <!-- Sidebar Live Shift Tracker Card -->
+        <div class="sidebar-live-widget">
+          <div class="widget-status">
+            <span class="pulse-dot ${s ? '' : 'offline'}"></span>
+            <span>${s ? 'Current Shift Active' : 'Currently Offline'}</span>
+          </div>
+          <div class="timer-digits" id="sidebarTimer">${s ? dur(worked(s)) : '00:00:00'}</div>
+          ${s ? `
+            <button class="btn-sidebar-clock btn-out" id="sideBtnClockOut">Clock Out</button>
+          ` : `
+            <button class="btn-sidebar-clock" id="sideBtnClockIn">Start Shift</button>
+          `}
+        </div>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <main class="main-wrapper">
+        <!-- Top Bar Header -->
+        <header class="topbar">
+          <div class="page-headline">
+            <h1>${getPageTitle(S.tab)}</h1>
+            <p>${getFormattedDate()}</p>
+          </div>
+          <div class="topbar-actions">
+            <div class="icon-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+            <div class="icon-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </div>
+            <div class="user-pill">
+              <div class="user-avatar">${esc(me.name.charAt(0))}</div>
+              <div class="user-info">
+                <div class="user-name">${esc(me.name)}</div>
+                <div class="user-role">${adm ? 'Admin Officer' : esc(me.workType)}</div>
+              </div>
+              <button class="btn-logout" id="out" title="Logout">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <!-- View Router -->
+        ${renderCurrentView(me, adm)}
+      </main>
+    </div>
   `;
 
-    $("#out").onclick = async () => {
-        const s = active(S.me);
-        if (s && !confirm("You are still clocked in. Log out anyway? (Your time keeps running until you clock out.)")) return;
-        logout();
-    };
-
-    bind(me);
-    if (adm && S.tab === "analytics") drawCharts();
+  bindEvents(me);
+  if (S.tab === "dashboard") drawDashboardCharts();
 }
+
+function getPageTitle(tab) {
+  switch(tab) {
+    case 'dashboard': return 'Productivity Report';
+    case 'tasks': return 'Tasks & Deadlines';
+    case 'track': return 'Time Tracker';
+    case 'sheet': return 'Weekly Timesheets';
+    case 'team': return 'Team Directory';
+    default: return 'Overview';
+  }
+}
+
+function renderCurrentView(me, adm) {
+  if (S.tab === "dashboard") return dashboardView();
+  if (S.tab === "tasks") return tasksView(adm);
+  if (S.tab === "track") return trackView(me);
+  if (S.tab === "sheet") return sheetView(adm, me);
+  if (S.tab === "team") return teamView();
+  return dashboardView();
+}
+
+/* ================= VIEWS ================= */
+
+function dashboardView() {
+  const ws = weekStart(), wkS = S.sessions.filter(x => (x.end || Date.now()) >= ws);
+  const totalHours = wkS.reduce((a, x) => a + worked(x), 0);
+  const clockedInCount = S.sessions.filter(x => !x.end).length;
+  const doneTasks = S.tasks.filter(t => t.status === "Done").length;
+  const overdueTasks = S.tasks.filter(t => tstate(t)[1] === "over").length;
+  const activeWorkers = S.sessions.filter(x => !x.end);
+
+  return `
+    <div class="dashboard-grid">
+      <!-- Left 2-Columns: KPIs & Bar Chart -->
+      <div class="grid-col-main">
+        <!-- 4 KPI Cards (Matching screenshot layout) -->
+        <div class="kpi-matrix">
+          <!-- Card 1: Pine Green Accent Card -->
+          <div class="kpi-card kpi-card-pine">
+            <div class="kpi-header">
+              <div class="kpi-icon-pill">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <span class="growth-badge positive">+14.2%</span>
+            </div>
+            <div>
+              <div class="kpi-label">Total Working Hours</div>
+              <div class="kpi-value-row">
+                <span class="kpi-big-number">${hrs(totalHours)} h</span>
+                <span class="kpi-caption">Hours vs Last Week</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Active Now -->
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon-pill">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              </div>
+              <span class="growth-badge subtle">Live</span>
+            </div>
+            <div>
+              <div class="kpi-label">Clocked In Now</div>
+              <div class="kpi-value-row">
+                <span class="kpi-big-number">${clockedInCount}</span>
+                <span class="kpi-caption">Active team members</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: Tasks Done -->
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon-pill">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <span class="growth-badge positive">${S.tasks.length ? Math.round(doneTasks / S.tasks.length * 100) : 0}%</span>
+            </div>
+            <div>
+              <div class="kpi-label">Tasks Completed</div>
+              <div class="kpi-value-row">
+                <span class="kpi-big-number">${doneTasks}</span>
+                <span class="kpi-caption">Of ${S.tasks.length} total tasks</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 4: Overdue Tasks -->
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <div class="kpi-icon-pill">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
+              <span class="growth-badge ${overdueTasks ? 'negative' : 'subtle'}">${overdueTasks} Overdue</span>
+            </div>
+            <div>
+              <div class="kpi-label">Pending Deadlines</div>
+              <div class="kpi-value-row">
+                <span class="kpi-big-number">${overdueTasks}</span>
+                <span class="kpi-caption">Requires action</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main Chart Card (Matching Customer Habits / Activity) -->
+        <div class="chart-card">
+          <div class="card-header-row">
+            <div>
+              <h3>Working Hours Activity</h3>
+              <p>Daily hours logged across the last 7 days</p>
+            </div>
+            <select class="select-filter">
+              <option>Last 7 days</option>
+            </select>
+          </div>
+          <div style="height: 270px;">
+            <canvas id="barChartDaily"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Sage Statistic Card & Live Workers -->
+      <div class="grid-col-side">
+        <!-- Sage Card from reference image -->
+        <div class="sage-summary-card">
+          <div>
+            <div class="card-header-row" style="margin-bottom: 8px;">
+              <div>
+                <h3>Role Statistics</h3>
+                <p>Hours logged by category</p>
+              </div>
+              <span class="growth-badge positive">This Week</span>
+            </div>
+            <div style="height: 190px; margin: 10px 0;">
+              <canvas id="donutChartRoles"></canvas>
+            </div>
+          </div>
+          <div class="side-breakdown-list">
+            ${TYPES.map(type => {
+              const count = Math.round(wkS.filter(x => x.type === type).reduce((a, b) => a + worked(b), 0) / 36e5);
+              return `
+                <div class="side-breakdown-item">
+                  <span>${esc(type)}</span>
+                  <span class="badge-stat">${count} hrs</span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Live Status Card -->
+        <div class="active-workers-card">
+          <h3>Team Clocked In</h3>
+          <p style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">Real-time active shifts</p>
+          <div class="worker-pill-list">
+            ${activeWorkers.length ? activeWorkers.map(w => `
+              <div class="worker-item-row">
+                <div class="worker-info-meta">
+                  <span class="status-indicator"></span>
+                  <div>
+                    <div class="worker-name">${esc(user(w.uid)?.name || 'Unknown')}</div>
+                    <div class="worker-role">${esc(w.type)}</div>
+                  </div>
+                </div>
+                <span class="tag-status track">${dur(worked(w))}</span>
+              </div>
+            `).join('') : '<p style="color: var(--text-light); font-size: 12px; margin-top: 10px;">Nobody is currently clocked in.</p>'}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function tasksView(adm) {
+  const emps = S.users.filter((u) => u.role !== "admin");
+  const ts = [...S.tasks].sort((a, b) => a.deadline.localeCompare(b.deadline));
+
+  return `
+    <div class="full-width-card">
+      ${adm ? `
+        <h3 style="margin-bottom: 6px;">Assign New Task</h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 18px;">Set task title, assign to an employee, and define deadline</p>
+        <div class="form-grid-3">
+          <div class="input-group">
+            <label>Task Title</label>
+            <input id="nt" placeholder="e.g. Design app onboarding flow">
+          </div>
+          <div class="input-group">
+            <label>Assignee</label>
+            <select id="na">
+              ${emps.map(u => `<option value="${u.id}">${esc(u.name)} (${esc(u.workType)})</option>`).join('')}
+            </select>
+          </div>
+          <div class="input-group">
+            <label>Deadline</label>
+            <input id="nd" type="date">
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 28px;">
+          <button class="btn-primary" id="ac">Create Task</button>
+          <span class="err" id="te" style="color: var(--accent-red); font-size: 12px;"></span>
+        </div>
+      ` : ''}
+
+      <h3>All Tasks (${ts.length})</h3>
+      <div style="overflow-x: auto;">
+        <table class="styled-table">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Assignee</th>
+              <th>Deadline</th>
+              <th>Status</th>
+              <th>State</th>
+              ${adm ? '<th>Action</th>' : ''}
+            </tr>
+          </thead>
+          <tbody>
+            ${ts.length ? ts.map(t => {
+              const [lbl, cls] = tstate(t);
+              return `
+                <tr>
+                  <td style="font-weight: 600;">${esc(t.title)}</td>
+                  <td>${esc(user(t.assignee)?.name || 'Unassigned')}</td>
+                  <td>${t.deadline}</td>
+                  <td>
+                    <select data-st="${t.id}" class="select-filter" style="width: auto;">
+                      ${["To do", "In progress", "Done"].map(x => `<option ${x === t.status ? 'selected' : ''}>${x}</option>`).join('')}
+                    </select>
+                  </td>
+                  <td><span class="tag-status ${cls}">${lbl}</span></td>
+                  ${adm ? `<td><button class="btn-action-del" data-dt="${t.id}">Delete</button></td>` : ''}
+                </tr>
+              `;
+            }).join('') : '<tr><td colspan="6" style="text-align: center; color: var(--text-light);">No tasks found.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function teamView() {
+  const emps = S.users.filter((u) => u.role !== "admin");
+
+  return `
+    <div class="full-width-card">
+      <h3 style="margin-bottom: 6px;">Create Employee Account</h3>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 18px;">Add team members to enable time tracking and task assignment</p>
+      
+      <div class="form-grid-3">
+        <div class="input-group">
+          <label>Full Name</label>
+          <input id="en" placeholder="e.g. Alex Morgan">
+        </div>
+        <div class="input-group">
+          <label>Username</label>
+          <input id="eu" placeholder="alex.m">
+        </div>
+        <div class="input-group">
+          <label>Password</label>
+          <input id="ep" type="text" placeholder="Min 4 characters">
+        </div>
+        <div class="input-group">
+          <label>Work Role</label>
+          <select id="et">
+            ${TYPES.map(t => `<option>${t}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 32px;">
+        <button class="btn-primary" id="ae">Register Employee</button>
+        <span class="err" id="ee" style="color: var(--accent-red); font-size: 12px;"></span>
+      </div>
+
+      <h3>Active Team Directory (${emps.length})</h3>
+      <div style="overflow-x: auto;">
+        <table class="styled-table">
+          <thead>
+            <tr>
+              <th>Employee Name</th>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Shift Status</th>
+              <th>Manage</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${emps.length ? emps.map(u => `
+              <tr>
+                <td style="font-weight: 600;">${esc(u.name)}</td>
+                <td style="color: var(--text-muted);">${esc(u.username)}</td>
+                <td><span class="growth-badge subtle">${esc(u.workType)}</span></td>
+                <td>
+                  ${active(u.id) ? '<span class="tag-status done">Clocked In</span>' : '<span class="tag-status" style="background:#f1f5f9; color:#64748b;">Offline</span>'}
+                </td>
+                <td>
+                  <button class="select-filter" data-rp="${u.id}" style="margin-right: 6px;">Reset Password</button>
+                  <button class="btn-action-del" data-du="${u.id}">Remove</button>
+                </td>
+              </tr>
+            `).join('') : '<tr><td colspan="5" style="text-align: center; color: var(--text-light);">No employees registered yet.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function trackView(me) {
+  const s = active(me.id), b = s && (s.breaks || []).find((x) => !x.e);
+  const mine = S.tasks.filter((t) => t.assignee === me.id && t.status !== "Done");
+
+  return `
+    <div class="full-width-card" style="max-width: 600px; margin: 0 auto;">
+      <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 6px;">Shift Workstation</h2>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px;">Track your time, select working task, and take breaks</p>
+
+      ${s ? `
+        <div style="background: var(--bg-app); border-radius: var(--radius-lg); padding: 24px; text-align: center; margin-bottom: 20px;">
+          <div style="color: var(--text-muted); font-size: 13px; font-weight: 600;">Clocked in as ${esc(s.type)}</div>
+          <div style="font-size: 48px; font-weight: 800; color: var(--primary-pine); margin: 8px 0;" id="tm">${dur(worked(s))}</div>
+          <div style="color: var(--text-light); font-size: 12px;">Active Task: ${esc(tname(s.taskId))}</div>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          ${b ? '<button class="btn-primary" id="bk" style="flex:1; background:var(--accent-amber);">Resume Work</button>' : '<button class="select-filter" id="bk" style="flex:1;">Take a Break</button>'}
+          <button class="btn-action-del" id="co" style="flex:1; padding: 12px; font-size: 14px;">End Shift (Clock Out)</button>
+        </div>
+      ` : `
+        <div class="input-group" style="margin-bottom: 16px;">
+          <label>Department / Work Type</label>
+          <select id="wt">
+            ${TYPES.map(t => `<option ${t === me.workType ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+        </div>
+        <div class="input-group" style="margin-bottom: 24px;">
+          <label>Working on Task (Optional)</label>
+          <select id="wk">
+            <option value="">– General Work / No specific task –</option>
+            ${mine.map(t => `<option value="${t.id}">${esc(t.title)}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn-primary" id="ci" style="width: 100%; padding: 14px; font-size: 15px;">Start Work Shift</button>
+      `}
+    </div>
+  `;
+}
+
+function sheetView(adm, me) {
+  const ws = weekStart();
+  const rows = (adm ? S.sessions : S.sessions.filter(x => x.uid === me.id && x.start >= ws)).sort((a, b) => b.start - a.start);
+
+  return `
+    <div class="full-width-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
+          <h3>${adm ? 'Master Timesheets' : 'My Weekly Timesheet'}</h3>
+          <p style="color: var(--text-muted); font-size: 12px;">Records of completed work shifts and break hours</p>
+        </div>
+        <button class="btn-primary" id="csv">Export CSV</button>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="styled-table">
+          <thead>
+            <tr>
+              ${adm ? '<th>Employee</th>' : ''}
+              <th>Date</th>
+              <th>Work Type</th>
+              <th>Task</th>
+              <th>In</th>
+              <th>Out</th>
+              <th>Breaks</th>
+              <th>Total Hours</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.length ? rows.map(x => `
+              <tr>
+                ${adm ? `<td style="font-weight: 600;">${esc(user(x.uid)?.name || 'Unknown')}</td>` : ''}
+                <td>${day(x.start)}</td>
+                <td><span class="growth-badge subtle">${esc(x.type)}</span></td>
+                <td>${esc(tname(x.taskId))}</td>
+                <td>${new Date(x.start).toLocaleTimeString([], { timeStyle: "short" })}</td>
+                <td>${x.end ? new Date(x.end).toLocaleTimeString([], { timeStyle: "short" }) : '<span class="tag-status track">Active</span>'}</td>
+                <td>${Math.round((x.breaks || []).reduce((a, b) => a + ((b.e || Date.now()) - b.s), 0) / 6e4)} min</td>
+                <td style="font-weight: 700;">${hrs(worked(x))} h</td>
+              </tr>
+            `).join('') : '<tr><td colspan="8" style="text-align: center; color: var(--text-light);">No time entries found.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+/* ================= AUTH VIEWS ================= */
 
 function loginView() {
   $("#app").innerHTML = `
-    <div class="login card">
-      <div class="logo" style="margin-bottom:10px">Team<span>Clock</span></div>
-      <label>Username</label><input id="lu" autocomplete="username">
-      <label>Password</label><input id="lp" type="password" autocomplete="current-password">
-      <div class="err" id="le"></div>
-      <button class="p" id="lb" style="width:100%">Log in &amp; start day</button>
+    <div class="auth-wrapper">
+      <div class="auth-card">
+        <div class="auth-brand">
+          <div class="brand-badge">T</div>
+          <div class="brand-title">TeamClock</div>
+        </div>
+        <h2>Sign In</h2>
+        <p>Enter your credentials to access your dashboard</p>
+        <div class="input-group" style="margin-bottom: 14px;">
+          <label>Username</label>
+          <input id="lu" autocomplete="username">
+        </div>
+        <div class="input-group" style="margin-bottom: 14px;">
+          <label>Password</label>
+          <input id="lp" type="password" autocomplete="current-password">
+        </div>
+        <div id="le" style="color: var(--accent-red); font-size: 12.5px; min-height: 18px;"></div>
+        <button class="btn-primary" id="lb">Log In</button>
+      </div>
     </div>
   `;
+
   const go = async () => {
     try {
       await auth("/login", { username: $("#lu").value.trim().toLowerCase(), password: $("#lp").value });
@@ -220,363 +684,234 @@ function loginView() {
     }
   };
   $("#lb").onclick = go;
-  $("#lp").onkeydown = (e) => {
-    if (e.key === "Enter") go();
-  };
-  $("#lu").onkeydown = (e) => {
-    if (e.key === "Enter") go();
-  };
+  $("#lp").onkeydown = (e) => { if (e.key === "Enter") go(); };
+  $("#lu").onkeydown = (e) => { if (e.key === "Enter") go(); };
 }
 
 function setupView() {
-    $("#app").innerHTML = `
-    <div class="login card">
-      <h2>First-time setup</h2>
-      <p class="mu">Create the Project Manager (admin) account.</p>
-      <label>Full name</label><input id="sn">
-      <label>Username</label><input id="su">
-      <label>Password</label><input id="sp" type="password">
-      <div class="err" id="se"></div>
-      <button class="p" id="sb" style="width:100%">Create admin</button>
-    </div>
-  `;
-    $("#sb").onclick = async () => {
-        const n = $("#sn").value.trim(), u = $("#su").value.trim().toLowerCase(), p = $("#sp").value;
-        if (!n || !u || p.length < 4) {
-            $("#se").textContent = "Fill all fields (password 4+ characters).";
-            return;
-        }
-        try {
-            await auth("/setup", { name: n, username: u, password: p });
-        } catch (e) {
-            $("#se").textContent = e.message;
-        }
-    };
-}
-
-function empView(me) {
-    const s = active(me.id), b = s && (s.breaks || []).find((x) => !x.e);
-    const mine = S.tasks.filter((t) => t.assignee === me.id).sort((a, b) => a.deadline.localeCompare(b.deadline));
-    const opts = mine.filter((t) => t.status !== "Done").map((t) => `<option value="${t.id}">${esc(t.title)}</option>`).join("");
-    const ws = weekStart(), logs = S.sessions.filter((x) => x.uid === me.id && x.end).sort((a, b) => b.start - a.start);
-    const wk = logs.filter((x) => x.start >= ws).reduce((a, x) => a + worked(x), 0) + (s ? worked(s) : 0);
-
-    const clock = s
-        ? `<div class="mu">Clocked in as <b>${esc(s.type)}</b> since ${fdt(s.start)}${s.taskId ? " · " + esc(tname(s.taskId)) : ""}</div>
-       <div class="timer" id="tm">${dur(worked(s))}</div>
-       <div class="row">
-         ${b ? `<button class="w" id="bk">Resume work</button>` : `<button id="bk">Start break</button>`}
-         <button class="d" id="co">Clock out</button>
-       </div>${b ? '<p class="mu">On break – timer is paused.</p>' : ""}`
-        : `<div class="mu">You are not clocked in.</div>
-       <label>Work type</label>
-       <select id="wt">${TYPES.map((t) => `<option ${t === me.workType ? "selected" : ""}>${t}</option>`).join("")}</select>
-       <label>Working on (optional)</label>
-       <select id="wk"><option value="">– No specific task –</option>${opts}</select>
-       <div style="margin-top:12px"><button class="p" id="ci">Clock in</button></div>`;
-
-    const tabs = `
-    <div class="tabs">
-      <button data-t="track" class="${S.tab === "track" ? "on" : ""}">Time tracking</button>
-      <button data-t="tasks" class="${S.tab === "tasks" ? "on" : ""}">My tasks (${mine.filter((t) => t.status !== "Done").length})</button>
-      <button data-t="sheet" class="${S.tab === "sheet" ? "on" : ""}">Weekly timesheet</button>
+  $("#app").innerHTML = `
+    <div class="auth-wrapper">
+      <div class="auth-card">
+        <div class="auth-brand">
+          <div class="brand-badge">T</div>
+          <div class="brand-title">TeamClock</div>
+        </div>
+        <h2>First-Time Setup</h2>
+        <p>Create the initial Project Manager (Admin) account</p>
+        <div class="input-group" style="margin-bottom: 14px;">
+          <label>Full Name</label>
+          <input id="sn" placeholder="e.g. John Doe">
+        </div>
+        <div class="input-group" style="margin-bottom: 14px;">
+          <label>Admin Username</label>
+          <input id="su" placeholder="admin">
+        </div>
+        <div class="input-group" style="margin-bottom: 14px;">
+          <label>Password (4+ chars)</label>
+          <input id="sp" type="password">
+        </div>
+        <div id="se" style="color: var(--accent-red); font-size: 12.5px; min-height: 18px;"></div>
+        <button class="btn-primary" id="sb">Create Admin Profile</button>
+      </div>
     </div>
   `;
 
-    let body = "";
-    if (S.tab === "track") body = `<div class="grid"><div class="card"><h2>Work session</h2>${clock}</div><div class="card"><h2>This week</h2><div class="timer">${hrs(wk)} h</div><div class="mu">Break time is not counted.</div></div></div>`;
-    if (S.tab === "tasks") body = `<div class="card scroll"><h2>My tasks</h2>${mine.length ? `<table><tr><th>Task</th><th>Deadline</th><th>State</th><th>Status</th></tr>${mine.map((t) => { const [l, c] = tstate(t); return `<tr><td>${esc(t.title)}</td><td>${t.deadline}</td><td><span class="tag ${c}">${l}</span></td><td><select data-st="${t.id}" style="width:auto">${["To do", "In progress", "Done"].map((x) => `<option ${x === t.status ? "selected" : ""}>${x}</option>`).join("")}</select></td></tr>`; }).join("")}</table>` : '<p class="mu">No tasks assigned yet.</p>'}</div>`;
-    if (S.tab === "sheet") body = sheetCard(logs.filter((x) => x.start >= ws), "My timesheet – this week");
-
-    return tabs + body;
-}
-
-function sheetCard(rows, title, showUser) {
-    return `
-    <div class="card scroll">
-      <div class="row" style="justify-content:space-between">
-        <h2>${title}</h2>
-        <button id="csv">Export CSV</button>
-      </div>
-      ${rows.length ? `<table><tr>${showUser ? "<th>Employee</th>" : ""}<th>Date</th><th>Work type</th><th>Task</th><th>In</th><th>Out</th><th>Break (min)</th><th>Hours</th></tr>${rows.map((x) => `<tr>${showUser ? `<td>${esc(user(x.uid)?.name)}</td>` : ""}<td>${day(x.start)}</td><td>${esc(x.type)}</td><td>${esc(tname(x.taskId))}</td><td>${new Date(x.start).toLocaleTimeString([], { timeStyle: "short" })}</td><td>${x.end ? new Date(x.end).toLocaleTimeString([], { timeStyle: "short" }) : "active"}</td><td>${Math.round((x.breaks || []).reduce((a, b) => a + ((b.e || Date.now()) - b.s), 0) / 6e4)}</td><td>${hrs(worked(x))}</td></tr>`).join("")}</table>` : '<p class="mu">No records.</p>'}
-    </div>
-  `;
-}
-
-function adminView() {
-    const T = [["analytics", "Analytics"], ["tasks", "Tasks"], ["team", "Team"], ["logs", "Time logs"]];
-    const tabs = `<div class="tabs">${T.map(([k, l]) => `<button data-t="${k}" class="${S.tab === k ? "on" : ""}">${l}</button>`).join("")}</div>`;
-    const emps = S.users.filter((u) => u.role !== "admin");
-
-    if (S.tab === "analytics") {
-        const ws = weekStart(), wkS = S.sessions.filter((x) => (x.end || Date.now()) >= ws);
-        const total = wkS.reduce((a, x) => a + worked(x), 0), on = S.sessions.filter((x) => !x.end);
-        const od = S.tasks.filter((t) => tstate(t)[1] === "over").length, dn = S.tasks.filter((t) => t.status === "Done").length;
-        return tabs + `
-      <div class="kpis">
-        <div class="kpi"><b>${hrs(total)}</b><small>Hours this week</small></div>
-        <div class="kpi"><b>${on.length}</b><small>Clocked in now</small></div>
-        <div class="kpi"><b>${S.tasks.length ? Math.round((dn / S.tasks.length) * 100) : 0}%</b><small>Tasks completed</small></div>
-        <div class="kpi"><b style="color:var(--er)">${od}</b><small>Overdue tasks</small></div>
-      </div>
-      <div class="card">
-        <h2>Who is working now</h2>
-        ${on.length ? on.map((x) => `<span class="tag done" style="margin:2px">${esc(user(x.uid)?.name)} · ${esc(x.type)}${(x.breaks || []).some((b) => !b.e) ? " (break)" : ""}</span>`).join("") : '<span class="mu">Nobody is clocked in.</span>'}
-      </div>
-      <div class="grid">
-        <div class="card"><h2>Hours per employee (this week)</h2><div class="ch"><canvas id="c1"></canvas></div></div>
-        <div class="card"><h2>Hours by work type (this week)</h2><div class="ch"><canvas id="c2"></canvas></div></div>
-        <div class="card"><h2>Daily hours – last 7 days</h2><div class="ch"><canvas id="c3"></canvas></div></div>
-        <div class="card"><h2>Task status</h2><div class="ch"><canvas id="c4"></canvas></div></div>
-      </div>
-    `;
-    }
-
-    if (S.tab === "tasks") {
-        const ts = [...S.tasks].sort((a, b) => a.deadline.localeCompare(b.deadline));
-        return tabs + `
-      <div class="card">
-        <h2>Create task</h2>
-        <div class="grid">
-          <div><label>Title</label><input id="nt"></div>
-          <div><label>Assign to</label><select id="na">${emps.map((u) => `<option value="${u.id}">${esc(u.name)} (${esc(u.workType)})</option>`).join("")}</select></div>
-          <div><label>Deadline</label><input id="nd" type="date"></div>
-        </div>
-        <div style="margin-top:12px">
-          <button class="p" id="ac">Add task</button>
-          <span class="err" id="te"></span>
-        </div>
-      </div>
-      <div class="card scroll">
-        <h2>All tasks</h2>
-        ${ts.length ? `<table><tr><th>Task</th><th>Assignee</th><th>Deadline</th><th>State</th><th>Status</th><th></th></tr>${ts.map((t) => { const [l, c] = tstate(t); return `<tr><td>${esc(t.title)}</td><td>${esc(user(t.assignee)?.name)}</td><td><input type="date" data-dl="${t.id}" value="${t.deadline}" style="width:auto"></td><td><span class="tag ${c}">${l}</span></td><td>${esc(t.status)}</td><td><button class="d" data-dt="${t.id}">Delete</button></td></tr>`; }).join("")}</table>` : '<p class="mu">No tasks yet.</p>'}
-      </div>
-    `;
-    }
-
-    if (S.tab === "team") {
-        return tabs + `
-      <div class="card">
-        <h2>Create employee login</h2>
-        <div class="grid">
-          <div><label>Full name</label><input id="en"></div>
-          <div><label>Username</label><input id="eu"></div>
-          <div><label>Password</label><input id="ep" type="text"></div>
-          <div><label>Work type / role</label><select id="et">${TYPES.map((t) => `<option>${t}</option>`).join("")}</select></div>
-        </div>
-        <div style="margin-top:12px">
-          <button class="p" id="ae">Create employee</button>
-          <span class="err" id="ee"></span>
-        </div>
-      </div>
-      <div class="card scroll">
-        <h2>Team (${emps.length})</h2>
-        ${emps.length ? `<table><tr><th>Name</th><th>Username</th><th>Work type</th><th>Status</th><th></th></tr>${emps.map((u) => `<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td>${esc(u.workType)}</td><td>${active(u.id) ? '<span class="tag done">Clocked in</span>' : '<span class="tag">Offline</span>'}</td><td><button data-rp="${u.id}">Reset password</button> <button class="d" data-du="${u.id}">Remove</button></td></tr>`).join("")}</table>` : '<p class="mu">No employees yet.</p>'}
-      </div>
-    `;
-    }
-
-    return tabs + sheetCard([...S.sessions].sort((a, b) => b.start - a.start), "All time logs", true);
-}
-
-function drawCharts() {
-    const emps = S.users.filter((u) => u.role !== "admin"), ws = weekStart(), C = ["#4f46e5", "#0ea5e9", "#16a34a", "#d97706", "#dc2626", "#9333ea"];
-    const tx = getComputedStyle(document.documentElement).getPropertyValue("--tx").trim() || "#888";
-    Chart.defaults.color = tx;
-
-    const wk = S.sessions.filter((x) => (x.end || Date.now()) >= ws);
-    const mk = (id, cfg) => charts.push(new Chart($(id), { ...cfg, options: { responsive: true, maintainAspectRatio: false, ...cfg.options } }));
-
-    mk("#c1", {
-        type: "bar",
-        data: {
-            labels: emps.map((u) => u.name),
-            datasets: [{ label: "Hours", data: emps.map((u) => +hrs(wk.filter((x) => x.uid === u.id).reduce((a, x) => a + worked(x), 0))), backgroundColor: C[0] }]
-        },
-        options: { plugins: { legend: { display: false } } }
-    });
-
-    mk("#c2", {
-        type: "doughnut",
-        data: {
-            labels: TYPES,
-            datasets: [{ data: TYPES.map((t) => +hrs(wk.filter((x) => x.type === t).reduce((a, x) => a + worked(x), 0))), backgroundColor: C }]
-        }
-    });
-
-    const days = [...Array(7)].map((_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - 6 + i);
-        return day(d);
-    });
-
-    mk("#c3", {
-        type: "line",
-        data: {
-            labels: days.map((d) => d.slice(5)),
-            datasets: [{ label: "Hours", data: days.map((d) => +hrs(S.sessions.filter((x) => day(x.start) === d).reduce((a, x) => a + worked(x), 0))), borderColor: C[1], backgroundColor: C[1] + "33", fill: true, tension: 0.3 }]
-        },
-        options: { plugins: { legend: { display: false } } }
-    });
-
-    const st = ["To do", "In progress", "Done"], od = S.tasks.filter((t) => tstate(t)[1] === "over").length;
-    mk("#c4", {
-        type: "doughnut",
-        data: {
-            labels: [...st, "Overdue"],
-            datasets: [{ data: [...st.map((s) => S.tasks.filter((t) => t.status === s && tstate(t)[1] !== "over").length), od], backgroundColor: ["#94a3b8", "#0ea5e9", "#16a34a", "#dc2626"] }]
-        }
-    });
-}
-
-function bind(me) {
-    document.querySelectorAll("[data-t]").forEach((b) => (b.onclick = () => { S.tab = b.dataset.t; render(); }));
-    const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
-
-    on("#ci", async () => {
-        try {
-            await db.doc("sessions/" + uid()).set({ uid: me.id, type: $("#wt").value, taskId: $("#wk").value, start: Date.now(), end: null, breaks: [] });
-        } catch (err) {
-            alert("Clock-in failed: " + err.message);
-        }
-    });
-
-    on("#co", async () => {
-        const s = active(me.id);
-        if (!s) return;
-        const br = (s.breaks || []).map((b) => (b.e ? b : { ...b, e: Date.now() }));
-        try {
-            await db.doc("sessions/" + s.id).update({ end: Date.now(), breaks: br });
-        } catch (err) {
-            alert("Clock-out failed: " + err.message);
-        }
-    });
-
-    on("#bk", async () => {
-        const s = active(me.id);
-        if (!s) return;
-        const br = [...(s.breaks || [])], o = br.find((x) => !x.e);
-        if (o) o.e = Date.now();
-        else br.push({ s: Date.now(), e: null });
-        try {
-            await db.doc("sessions/" + s.id).update({ breaks: br.map((x) => ({ ...x })) });
-        } catch (err) {
-            alert("Break update failed: " + err.message);
-        }
-    });
-
-    document.querySelectorAll("[data-st]").forEach((s) => (s.onchange = () => s.value && db.doc("tasks/" + s.dataset.st).update({ status: s.value }).catch((e) => alert(e.message))));
-    document.querySelectorAll("[data-dl]").forEach((s) => (s.onchange = () => s.value && db.doc("tasks/" + s.dataset.dl).update({ deadline: s.value }).catch((e) => alert(e.message))));
-    document.querySelectorAll("[data-dt]").forEach((b) => (b.onclick = () => confirm("Delete this task?") && db.doc("tasks/" + b.dataset.dt).delete().catch((e) => alert(e.message))));
-    document.querySelectorAll("[data-du]").forEach((b) => (b.onclick = () => confirm("Remove this employee?") && db.doc("users/" + b.dataset.du).delete().catch((e) => alert(e.message))));
-
-    document.querySelectorAll("[data-rp]").forEach((b) => (b.onclick = async () => {
-        const p = prompt("New password (4+ characters):");
-        if (!p || p.length < 4) return;
-        const u = user(b.dataset.rp);
-        try {
-            await db.doc("users/" + u.id).update({ password: p });
-            alert("Password updated successfully");
-        } catch (err) {
-            alert("Password reset failed: " + err.message);
-        }
-    }));
-
-    on("#ac", async () => {
-        const t = $("#nt").value.trim(), a = $("#na").value, d = $("#nd").value;
-        if (!t || !a || !d) {
-            $("#te").textContent = "Title, assignee and deadline are required.";
-            return;
-        }
-        $("#te").textContent = "";
-        try {
-            await db.doc("tasks/" + uid()).set({ title: t, assignee: a, deadline: d, status: "To do", created: Date.now() });
-            $("#nt").value = "";
-        } catch (err) {
-            $("#te").textContent = err.message || "Failed to create task";
-        }
-    });
-
-    // Fixed employee creation with inline feedback
-on("#ae", async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    const errSpan = $("#ee");
-    const nameInput = $("#en");
-    const userInput = $("#eu");
-    const passInput = $("#ep");
-    const typeSelect = $("#et");
-
-    const n = nameInput.value.trim();
-    const u = userInput.value.trim().toLowerCase();
-    const p = passInput.value;
-    const wt = typeSelect.value;
-
+  $("#sb").onclick = async () => {
+    const n = $("#sn").value.trim(), u = $("#su").value.trim().toLowerCase(), p = $("#sp").value;
     if (!n || !u || p.length < 4) {
-      if (errSpan) errSpan.textContent = "Fill all fields (password 4+ characters).";
+      $("#se").textContent = "Fill all fields (password 4+ characters).";
       return;
     }
-
-    if (S.users.some((x) => x.username === u)) {
-      if (errSpan) errSpan.textContent = "Username already exists.";
-      return;
-    }
-
-    const btn = $("#ae");
-    btn.disabled = true;
-    btn.textContent = "Creating...";
-    if (errSpan) errSpan.textContent = "";
-
     try {
-      const newId = "u_" + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
-      
-      const res = await API("PUT", "/users/" + newId, {
-        name: n,
-        username: u,
-        password: p,
-        role: "employee",
-        workType: wt
-      });
-
-      alert(`Employee created successfully!\n\nUsername: ${u}\nPassword: ${p}\n\nShare these with the employee.`);
-      
-      // Clear inputs only after confirmed success
-      nameInput.value = "";
-      userInput.value = "";
-      passInput.value = "";
-
-      // Reload fresh team data
-      await load();
-    } catch (err) {
-      console.error("Employee creation failed:", err);
-      if (errSpan) errSpan.textContent = err.message || "Failed to create employee.";
-      alert("Error: " + (err.message || "Failed to create employee."));
-    } finally {
-      btn.disabled = false;
-      btn.textContent = "Create employee";
+      await auth("/setup", { name: n, username: u, password: p });
+    } catch (e) {
+      $("#se").textContent = e.message;
     }
+  };
+}
+
+/* ================= CHARTS ================= */
+
+function drawDashboardCharts() {
+  // Chart 1: Bar Chart (matching customer habits styling)
+  const days = [...Array(7)].map((_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - 6 + i);
+    return day(d);
   });
 
-    on("#csv", () => {
-        const adm = me.role === "admin";
-        const rows = (adm ? S.sessions : S.sessions.filter((x) => x.uid === me.id && x.start >= weekStart())).sort((a, b) => b.start - a.start);
-        const q = (v) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
-        const csv = [
-            "Employee,Date,Work type,Task,Clock in,Clock out,Break minutes,Hours",
-            ...rows.map((x) => [
-                user(x.uid)?.name,
-                day(x.start),
-                x.type,
-                tname(x.taskId),
-                fdt(x.start),
-                fdt(x.end),
-                Math.round((x.breaks || []).reduce((a, b) => a + ((b.e || Date.now()) - b.s), 0) / 6e4),
-                hrs(worked(x))
-            ].map(q).join(","))
-        ].join("\n");
+  const dailyHours = days.map(d => +hrs(S.sessions.filter(x => day(x.start) === d).reduce((a, b) => a + worked(b), 0)));
 
-        if (dl) dl.save({ filename: "timesheet.csv", data: csv }).catch(() => { });
-        else alert("Download is not available here.");
+  const ctxBar = document.getElementById("barChartDaily");
+  if (ctxBar) {
+    charts.push(new Chart(ctxBar, {
+      type: "bar",
+      data: {
+        labels: days.map(d => new Date(d).toLocaleDateString([], { weekday: 'short' })),
+        datasets: [{
+          label: "Hours Logged",
+          data: dailyHours,
+          backgroundColor: "#073b28",
+          hoverBackgroundColor: "#10b981",
+          borderRadius: 8,
+          barThickness: 28
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { family: 'Plus Jakarta Sans', weight: '600' } } },
+          y: { grid: { color: '#f1f5f9' }, ticks: { font: { family: 'Plus Jakarta Sans' } } }
+        }
+      }
+    }));
+  }
+
+  // Chart 2: Donut Chart for Sage card
+  const ctxDonut = document.getElementById("donutChartRoles");
+  if (ctxDonut) {
+    const ws = weekStart(), wkS = S.sessions.filter(x => (x.end || Date.now()) >= ws);
+    const dataByRole = TYPES.map(t => +hrs(wkS.filter(x => x.type === t).reduce((a, b) => a + worked(b), 0)));
+
+    charts.push(new Chart(ctxDonut, {
+      type: "doughnut",
+      data: {
+        labels: TYPES,
+        datasets: [{
+          data: dataByRole.every(v => v === 0) ? [1, 1, 1, 1, 1] : dataByRole,
+          backgroundColor: ["#073b28", "#10b981", "#34d399", "#065f46", "#6ee7b7"],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "70%",
+        plugins: { legend: { display: false } }
+      }
+    }));
+  }
+}
+
+/* ================= EVENT BINDINGS ================= */
+
+function bindEvents(me) {
+  // Navigation tabs
+  document.querySelectorAll("[data-t]").forEach((b) => {
+    b.onclick = () => {
+      S.tab = b.dataset.t;
+      render();
+    };
+  });
+
+  const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+
+  // Logout
+  on("#out", () => {
+    const s = active(S.me);
+    if (s && !confirm("You are still clocked in. Log out anyway?")) return;
+    logout();
+  });
+
+  // Sidebar live widget buttons
+  on("#sideBtnClockIn", () => { S.tab = "track"; render(); });
+  on("#sideBtnClockOut", async () => {
+    const s = active(me.id);
+    if (!s) return;
+    const br = (s.breaks || []).map((b) => (b.e ? b : { ...b, e: Date.now() }));
+    await db.doc("sessions/" + s.id).update({ end: Date.now(), breaks: br });
+  });
+
+  // Time tracker screen actions
+  on("#ci", async () => {
+    await db.doc("sessions/" + uid()).set({
+      uid: me.id,
+      type: $("#wt").value,
+      taskId: $("#wk").value,
+      start: Date.now(),
+      end: null,
+      breaks: []
     });
+  });
+
+  on("#co", async () => {
+    const s = active(me.id);
+    if (!s) return;
+    const br = (s.breaks || []).map((b) => (b.e ? b : { ...b, e: Date.now() }));
+    await db.doc("sessions/" + s.id).update({ end: Date.now(), breaks: br });
+  });
+
+  on("#bk", async () => {
+    const s = active(me.id);
+    if (!s) return;
+    const br = [...(s.breaks || [])], o = br.find((x) => !x.e);
+    if (o) o.e = Date.now();
+    else br.push({ s: Date.now(), e: null });
+    await db.doc("sessions/" + s.id).update({ breaks: br.map((x) => ({ ...x })) });
+  });
+
+  // Task actions
+  on("#ac", async () => {
+    const t = $("#nt").value.trim(), a = $("#na").value, d = $("#nd").value;
+    if (!t || !a || !d) {
+      $("#te").textContent = "All task fields are required.";
+      return;
+    }
+    await db.doc("tasks/" + uid()).set({ title: t, assignee: a, deadline: d, status: "To do", created: Date.now() });
+  });
+
+  document.querySelectorAll("[data-st]").forEach(s => s.onchange = () => db.doc("tasks/" + s.dataset.st).update({ status: s.value }));
+  document.querySelectorAll("[data-dt]").forEach(b => b.onclick = () => confirm("Delete task?") && db.doc("tasks/" + b.dataset.dt).delete());
+
+  // Employee creation & actions
+  on("#ae", async () => {
+    const n = $("#en").value.trim(), u = $("#eu").value.trim().toLowerCase(), p = $("#ep").value;
+    if (!n || !u || p.length < 4) {
+      $("#ee").textContent = "Fill all fields (password 4+ chars).";
+      return;
+    }
+    if (S.users.some(x => x.username === u)) {
+      $("#ee").textContent = "Username already exists.";
+      return;
+    }
+    await db.doc("users/" + uid()).set({ name: n, username: u, password: p, role: "employee", workType: $("#et").value });
+    alert(`Employee created!\nUsername: ${u}\nPassword: ${p}`);
+  });
+
+  document.querySelectorAll("[data-rp]").forEach(b => b.onclick = async () => {
+    const p = prompt("New password (4+ chars):");
+    if (!p || p.length < 4) return;
+    await db.doc("users/" + b.dataset.rp).update({ password: p });
+    alert("Password updated!");
+  });
+  document.querySelectorAll("[data-du]").forEach(b => b.onclick = () => confirm("Remove employee?") && db.doc("users/" + b.dataset.du).delete());
+
+  // Export CSV
+  on("#csv", () => {
+    const adm = me.role === "admin";
+    const rows = (adm ? S.sessions : S.sessions.filter(x => x.uid === me.id && x.start >= weekStart())).sort((a, b) => b.start - a.start);
+    const q = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+    const csv = [
+      "Employee,Date,Work type,Task,Clock in,Clock out,Break minutes,Hours",
+      ...rows.map(x => [
+        user(x.uid)?.name,
+        day(x.start),
+        x.type,
+        tname(x.taskId),
+        new Date(x.start).toLocaleTimeString(),
+        x.end ? new Date(x.end).toLocaleTimeString() : 'Active',
+        Math.round((x.breaks || []).reduce((a, b) => a + ((b.e || Date.now()) - b.s), 0) / 6e4),
+        hrs(worked(x))
+      ].map(q).join(","))
+    ].join("\n");
+
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = "teamclock_report.csv";
+    a.click();
+  });
 }
 
 init();
