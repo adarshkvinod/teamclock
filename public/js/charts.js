@@ -1,16 +1,21 @@
 import { S, TASK_TYPES, TYPES } from "./state.js";
 import { day, hrs, worked, weekStart } from "./utils.js";
 
-let activeCharts = [];
+let barChartInstance = null;
+let donutChartInstance = null;
 
 export function clearCharts() {
-  activeCharts.forEach((c) => c.destroy());
-  activeCharts = [];
+  if (barChartInstance) {
+    barChartInstance.destroy();
+    barChartInstance = null;
+  }
+  if (donutChartInstance) {
+    donutChartInstance.destroy();
+    donutChartInstance = null;
+  }
 }
 
 export function drawDashboardCharts() {
-  clearCharts();
-
   const days = [...Array(7)].map((_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - 6 + i);
@@ -21,10 +26,23 @@ export function drawDashboardCharts() {
     +hrs(S.sessions.filter((x) => day(x.start) === d).reduce((a, b) => a + worked(b), 0))
   );
 
+  const categories = TASK_TYPES || TYPES;
+  const ws = weekStart();
+  const wkS = S.sessions.filter((x) => (x.end || Date.now()) >= ws);
+  const dataByRole = categories.map((t) => +hrs(wkS.filter((x) => x.type === t).reduce((a, b) => a + worked(b), 0)));
+
+  // 1. Daily Bar Chart
   const ctxBar = document.getElementById("barChartDaily");
   if (ctxBar) {
-    activeCharts.push(
-      new Chart(ctxBar, {
+    if (barChartInstance) {
+      // In-place smooth update without flash
+      barChartInstance.data.labels = days.map((d) =>
+        new Date(d).toLocaleDateString([], { weekday: "short" })
+      );
+      barChartInstance.data.datasets[0].data = dailyHours;
+      barChartInstance.update("none");
+    } else {
+      barChartInstance = new Chart(ctxBar, {
         type: "bar",
         data: {
           labels: days.map((d) => new Date(d).toLocaleDateString([], { weekday: "short" })),
@@ -48,25 +66,26 @@ export function drawDashboardCharts() {
             y: { grid: { color: "#f1f5f9" }, ticks: { font: { family: "Plus Jakarta Sans" } } }
           }
         }
-      })
-    );
+      });
+    }
   }
 
+  // 2. Role Donut Chart
   const ctxDonut = document.getElementById("donutChartRoles");
   if (ctxDonut) {
-    const categories = TASK_TYPES || TYPES;
-    const ws = weekStart(),
-      wkS = S.sessions.filter((x) => (x.end || Date.now()) >= ws);
-    const dataByRole = categories.map((t) => +hrs(wkS.filter((x) => x.type === t).reduce((a, b) => a + worked(b), 0)));
-
-    activeCharts.push(
-      new Chart(ctxDonut, {
+    const donutData = dataByRole.every((v) => v === 0) ? Array(categories.length).fill(1) : dataByRole;
+    if (donutChartInstance) {
+      donutChartInstance.data.labels = categories;
+      donutChartInstance.data.datasets[0].data = donutData;
+      donutChartInstance.update("none");
+    } else {
+      donutChartInstance = new Chart(ctxDonut, {
         type: "doughnut",
         data: {
           labels: categories,
           datasets: [
             {
-              data: dataByRole.every((v) => v === 0) ? Array(categories.length).fill(1) : dataByRole,
+              data: donutData,
               backgroundColor: [
                 "#073b28",
                 "#0a4933",
@@ -87,7 +106,7 @@ export function drawDashboardCharts() {
           cutout: "70%",
           plugins: { legend: { display: false } }
         }
-      })
-    );
+      });
+    }
   }
 }
