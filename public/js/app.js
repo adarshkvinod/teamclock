@@ -134,24 +134,34 @@ async function init() {
 }
 
 function refresh() {
-    if (S.ready < 7) return;
-    const a = document.activeElement;
-    if (a && /INPUT|SELECT/.test(a.tagName) && a.closest("main")) {
-        dirty = true;
-        return;
+  if (S.ready < 7) return;
+  // Never wipe the form while on the team or tasks tab if inputs have text
+  if (S.tab === "team" || S.tab === "tasks") {
+    const en = $("#en"), nt = $("#nt");
+    if ((en && en.value) || (nt && nt.value)) {
+      dirty = true;
+      return;
     }
-    render();
+  }
+  const a = document.activeElement;
+  if (a && /INPUT|SELECT|BUTTON/.test(a.tagName) && a.closest("main")) {
+    dirty = true;
+    return;
+  }
+  render();
 }
 
-document.addEventListener("focusout", () => {
-    if (dirty) {
-        setTimeout(() => {
-            if (!/INPUT|SELECT/.test(document.activeElement.tagName)) {
-                dirty = false;
-                render();
-            }
-        }, 50);
-    }
+document.addEventListener("focusout", (e) => {
+  // Only trigger re-render if focus genuinely left the main container
+  if (dirty) {
+    setTimeout(() => {
+      const active = document.activeElement;
+      if (!active || !active.closest("main")) {
+        dirty = false;
+        render();
+      }
+    }, 150);
+  }
 });
 
 function tick() {
@@ -488,35 +498,63 @@ function bind(me) {
     });
 
     // Fixed employee creation with inline feedback
-    on("#ae", async () => {
-        const n = $("#en").value.trim(), u = $("#eu").value.trim().toLowerCase(), p = $("#ep").value;
-        if (!n || !u || p.length < 4) {
-            $("#ee").textContent = "Fill all fields (password 4+ characters).";
-            return;
-        }
-        if (S.users.some((x) => x.username === u)) {
-            $("#ee").textContent = "Username already exists.";
-            return;
-        }
+on("#ae", async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const errSpan = $("#ee");
+    const nameInput = $("#en");
+    const userInput = $("#eu");
+    const passInput = $("#ep");
+    const typeSelect = $("#et");
 
-        $("#ee").textContent = "Creating employee...";
-        try {
-            await db.doc("users/" + uid()).set({
-                name: n,
-                username: u,
-                password: p,
-                role: "employee",
-                workType: $("#et").value
-            });
-            $("#ee").textContent = "";
-            alert("Employee created successfully.\nUsername: " + u + "\nPassword: " + p);
-            $("#en").value = "";
-            $("#eu").value = "";
-            $("#ep").value = "";
-        } catch (err) {
-            $("#ee").textContent = err.message || "Failed to create employee";
-        }
-    });
+    const n = nameInput.value.trim();
+    const u = userInput.value.trim().toLowerCase();
+    const p = passInput.value;
+    const wt = typeSelect.value;
+
+    if (!n || !u || p.length < 4) {
+      if (errSpan) errSpan.textContent = "Fill all fields (password 4+ characters).";
+      return;
+    }
+
+    if (S.users.some((x) => x.username === u)) {
+      if (errSpan) errSpan.textContent = "Username already exists.";
+      return;
+    }
+
+    const btn = $("#ae");
+    btn.disabled = true;
+    btn.textContent = "Creating...";
+    if (errSpan) errSpan.textContent = "";
+
+    try {
+      const newId = "u_" + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+      
+      const res = await API("PUT", "/users/" + newId, {
+        name: n,
+        username: u,
+        password: p,
+        role: "employee",
+        workType: wt
+      });
+
+      alert(`Employee created successfully!\n\nUsername: ${u}\nPassword: ${p}\n\nShare these with the employee.`);
+      
+      // Clear inputs only after confirmed success
+      nameInput.value = "";
+      userInput.value = "";
+      passInput.value = "";
+
+      // Reload fresh team data
+      await load();
+    } catch (err) {
+      console.error("Employee creation failed:", err);
+      if (errSpan) errSpan.textContent = err.message || "Failed to create employee.";
+      alert("Error: " + (err.message || "Failed to create employee."));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Create employee";
+    }
+  });
 
     on("#csv", () => {
         const adm = me.role === "admin";
