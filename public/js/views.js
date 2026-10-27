@@ -249,7 +249,7 @@ export function dashboardView() {
                       <div class="worker-role">${esc(w.type)}</div>
                     </div>
                   </div>
-                  <span class="tag-status track" data-worker-timer="${w.id}">${dur(worked(w))}</span>
+                  <span class="tag-status track" data-worker-timer="${w.id || w._id}">${dur(worked(w))}</span>
                 </div>
               `
                 )

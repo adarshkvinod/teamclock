@@ -15,29 +15,24 @@ import {
 import { bindEvents, bindAuthEvents } from "./events.js";
 
 function tick() {
-    const s = active(S.me);
-    if (!s) return;
-
+  // 1. Update personal shift timers (Workstation display & Sidebar widget)
+  const s = active(S.me);
+  if (s) {
     const currentDuration = dur(worked(s));
-
-    // 1. Shift Workstation main display (#tm from your screenshot)
     const mainTimer = $("#tm");
-    if (mainTimer) {
-        mainTimer.textContent = currentDuration;
-    }
-
-    // 2. Sidebar live widget timer
+    if (mainTimer) mainTimer.textContent = currentDuration;
     const sidebarTimer = $("#sidebarTimer");
-    if (sidebarTimer) {
-        sidebarTimer.textContent = currentDuration;
+    if (sidebarTimer) sidebarTimer.textContent = currentDuration;
+  }
+
+  // 2. Update all active employee timers in the "Team Clocked In" dashboard card
+  document.querySelectorAll("[data-worker-timer]").forEach((el) => {
+    const sessionId = el.dataset.workerTimer;
+    const session = S.sessions.find((x) => (x.id || x._id) === sessionId);
+    if (session && !session.end) {
+      el.textContent = dur(worked(session));
     }
-    // 3. Update any active teammate timers visible on the dashboard
-    document.querySelectorAll("[data-worker-timer]").forEach((el) => {
-        const session = S.sessions.find((x) => x.id === el.dataset.workerTimer);
-        if (session && !session.end) {
-            el.textContent = dur(worked(session));
-        }
-    });
+  });
 }
 
 function render() {
