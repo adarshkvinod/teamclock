@@ -852,7 +852,12 @@ body {
   height: 3px;
   background: var(--accent-emerald);
   width: 100%;
-  animation: toast-timer 3.5s linear forwards;
+  animation: toast-timer var(--toast-duration, 4s) linear forwards;
+}
+
+/* Pause the bar visually while the user hovers */
+.toast-card:hover .toast-progress {
+  animation-play-state: paused;
 }
 
 .toast-error .toast-progress { background: var(--accent-red); }

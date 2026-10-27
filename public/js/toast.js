@@ -11,7 +11,7 @@ export const toast = {
     }
   },
 
-  show({ type = "info", title = "", message = "", duration = 3500 }) {
+show({ type = "info", title = "", message = "", duration = 4000 }) {
     this.init();
 
     const icons = {
@@ -23,6 +23,7 @@ export const toast = {
 
     const card = document.createElement("div");
     card.className = `toast-card toast-${type}`;
+    card.style.setProperty("--toast-duration", `${duration}ms`);
     card.innerHTML = `
       <div class="toast-icon">${icons[type] || icons.info}</div>
       <div class="toast-body">
@@ -38,15 +39,38 @@ export const toast = {
     this.container.appendChild(card);
     requestAnimationFrame(() => card.classList.add("show"));
 
+    let dismissTimer = null;
+    let startTime = Date.now();
+    let remaining = duration;
+
     const dismiss = () => {
+      if (!card.parentNode) return;
       card.classList.remove("show");
       card.classList.add("hide");
       setTimeout(() => card.remove(), 300);
     };
 
+    const startTimer = () => {
+      startTime = Date.now();
+      dismissTimer = setTimeout(dismiss, remaining);
+    };
+
+    const pauseTimer = () => {
+      clearTimeout(dismissTimer);
+      remaining -= Date.now() - startTime;
+    };
+
+    // Close button dismisses immediately
     card.querySelector(".toast-close").onclick = dismiss;
-    const autoDismiss = setTimeout(dismiss, duration);
-    card.onmouseenter = () => clearTimeout(autoDismiss);
+
+    // Pause countdown while mouse is hovering; resume when mouse leaves
+    card.onmouseenter = pauseTimer;
+    card.onmouseleave = () => {
+      if (remaining > 0) startTimer();
+      else dismiss();
+    };
+
+    startTimer();
   },
 
   success(message, title = "Success") {
