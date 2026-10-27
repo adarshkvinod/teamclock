@@ -969,3 +969,259 @@ body {
 .btn-confirm-accept.danger:hover {
   background: #dc2626;
 }
+/* ================= CUSTOM PASSWORD PROMPT MODAL ================= */
+.prompt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 23, 16, 0.55);
+  backdrop-filter: blur(6px);
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.prompt-modal-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.prompt-modal-card {
+  background: #ffffff;
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 24px 48px -12px rgba(7, 59, 40, 0.25);
+  border: 1px solid var(--border-subtle);
+  transform: scale(0.94) translateY(12px);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.prompt-modal-overlay.open .prompt-modal-card {
+  transform: scale(1) translateY(0);
+}
+
+.prompt-icon-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--bg-sage);
+  color: var(--primary-pine);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.prompt-icon-badge svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  fill: none;
+}
+
+.prompt-modal-card h3 {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.3px;
+  margin-bottom: 6px;
+}
+
+.prompt-modal-card p {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.prompt-input-wrapper {
+  margin-bottom: 24px;
+}
+
+.prompt-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border-subtle);
+  background: #f8fafc;
+  color: var(--text-main);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.prompt-input:focus {
+  background: #ffffff;
+  border-color: var(--accent-emerald);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+}
+
+.prompt-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.prompt-actions button {
+  padding: 11px 20px;
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.btn-prompt-cancel {
+  background: #f1f5f9;
+  color: var(--text-muted);
+}
+.btn-prompt-cancel:hover {
+  background: #e2e8f0;
+  color: var(--text-main);
+}
+
+.btn-prompt-submit {
+  background: var(--primary-pine);
+  color: #ffffff;
+}
+.btn-prompt-submit:hover {
+  background: var(--primary-pine-hover);
+  box-shadow: 0 4px 12px rgba(7, 59, 40, 0.2);
+}
+
+/* ================= CUSTOM STATUS PILL DROPDOWN ================= */
+.status-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.status-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #f8fafc;
+}
+
+.status-dropdown-trigger:hover {
+  filter: brightness(0.96);
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-chevron {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  fill: none;
+  opacity: 0.6;
+  transition: transform 0.2s ease;
+}
+
+.status-dropdown.open .status-chevron {
+  transform: rotate(180deg);
+}
+
+/* Status Pill Colors */
+.status-trigger-todo {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+.status-trigger-todo .status-dot { background: #94a3b8; }
+
+.status-trigger-progress {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+.status-trigger-progress .status-dot { background: #0ea5e9; }
+
+.status-trigger-done {
+  background: var(--accent-emerald-subtle);
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+.status-trigger-done .status-dot { background: var(--accent-emerald); }
+
+/* Dropdown Menu Popover */
+.status-dropdown-menu {
+  position: fixed; /* Breaks out of the table scroll container */
+  min-width: 160px;
+  background: #ffffff;
+  border-radius: var(--radius-md);
+  padding: 6px;
+  box-shadow: 0 16px 36px -4px rgba(7, 59, 40, 0.18), 0 6px 16px -2px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--border-subtle);
+  z-index: 99999; /* Stacks above all table headers and cards */
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.status-dropdown.open .status-dropdown-menu {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.status-option-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.status-option-btn:hover {
+  background: #f8fafc;
+}
+
+.status-option-btn.selected {
+  background: #f1f5f9;
+  color: var(--primary-pine);
+  font-weight: 700;
+}
+
+.status-option-btn .check-icon {
+  margin-left: auto;
+  width: 15px;
+  height: 15px;
+  stroke: var(--accent-emerald);
+  stroke-width: 2.5;
+  fill: none;
+}

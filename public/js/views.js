@@ -267,6 +267,12 @@ export function tasksView(adm) {
   const emps = S.users.filter((u) => u.role !== "admin");
   const ts = [...S.tasks].sort((a, b) => a.deadline.localeCompare(b.deadline));
 
+  const getStatusClass = (status) => {
+    if (status === "Done") return "done";
+    if (status === "In progress") return "progress";
+    return "todo";
+  };
+
   return `
     <div class="full-width-card">
       ${
@@ -317,17 +323,40 @@ export function tasksView(adm) {
                 ? ts
                     .map((t) => {
                       const [lbl, cls] = tstate(t);
+                      const currentClass = getStatusClass(t.status);
                       return `
                   <tr>
                     <td style="font-weight: 600;">${esc(t.title)}</td>
                     <td>${esc(user(t.assignee)?.name || "Unassigned")}</td>
                     <td>${t.deadline}</td>
                     <td>
-                      <select data-st="${t.id}" class="select-filter" style="width: auto;">
-                        ${["To do", "In progress", "Done"]
-                          .map((x) => `<option ${x === t.status ? "selected" : ""}>${x}</option>`)
-                          .join("")}
-                      </select>
+                      <!-- Custom Styled Dropdown Pill -->
+                      <div class="status-dropdown" data-task-id="${t.id}">
+                        <button type="button" class="status-dropdown-trigger status-trigger-${currentClass}">
+                          <span class="status-dot"></span>
+                          <span class="status-label-text">${esc(t.status)}</span>
+                          <svg class="status-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div class="status-dropdown-menu">
+                          ${["To do", "In progress", "Done"]
+                            .map((opt) => {
+                              const optClass = getStatusClass(opt);
+                              const isSelected = opt === t.status;
+                              return `
+                                <button type="button" class="status-option-btn ${isSelected ? "selected" : ""}" data-status-val="${opt}">
+                                  <span class="status-dot status-trigger-${optClass}"></span>
+                                  <span>${opt}</span>
+                                  ${
+                                    isSelected
+                                      ? `<svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`
+                                      : ""
+                                  }
+                                </button>
+                              `;
+                            })
+                            .join("")}
+                        </div>
+                      </div>
                     </td>
                     <td><span class="tag-status ${cls}">${lbl}</span></td>
                     ${adm ? `<td><button class="btn-action-del" data-dt="${t.id}">Delete</button></td>` : ""}

@@ -105,5 +105,62 @@ export const toast = {
         if (e.target === overlay) close(false);
       };
     });
+  },
+
+  prompt({
+    title = "Reset Password",
+    message = "Enter new password (minimum 4 characters):",
+    placeholder = "New password...",
+    confirmText = "Update Password",
+    cancelText = "Cancel"
+  }) {
+    return new Promise((resolve) => {
+      const existing = document.querySelector(".prompt-modal-overlay");
+      if (existing) existing.remove();
+
+      const overlay = document.createElement("div");
+      overlay.className = "prompt-modal-overlay";
+      overlay.innerHTML = `
+        <div class="prompt-modal-card">
+          <div class="prompt-icon-badge">
+            <svg viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <h3>${esc(title)}</h3>
+          <p>${esc(message)}</p>
+          <div class="prompt-input-wrapper">
+            <input type="password" id="customPromptInput" class="prompt-input" placeholder="${esc(placeholder)}" autocomplete="new-password">
+          </div>
+          <div class="prompt-actions">
+            <button type="button" class="btn-prompt-cancel">${esc(cancelText)}</button>
+            <button type="button" class="btn-prompt-submit">${esc(confirmText)}</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => overlay.classList.add("open"));
+
+      const input = overlay.querySelector("#customPromptInput");
+      input.focus();
+
+      const close = (value) => {
+        overlay.classList.remove("open");
+        setTimeout(() => overlay.remove(), 200);
+        resolve(value);
+      };
+
+      overlay.querySelector(".btn-prompt-cancel").onclick = () => close(null);
+      overlay.querySelector(".btn-prompt-submit").onclick = () => close(input.value);
+
+      input.onkeydown = (e) => {
+        if (e.key === "Enter") close(input.value);
+        if (e.key === "Escape") close(null);
+      };
+
+      overlay.onclick = (e) => {
+        if (e.target === overlay) close(null);
+      };
+    });
   }
+  
 };

@@ -118,23 +118,39 @@ export function bindEvents(me) {
     }
   });
 
-  document.querySelectorAll("[data-st]").forEach((s) => {
-    let previousValue = s.value;
-    s.onchange = async () => {
-      const taskId = s.dataset.st;
-      const newStatus = s.value;
-      s.disabled = true;
-      try {
-        await db.doc("tasks/" + taskId).update({ status: newStatus });
-        previousValue = newStatus;
-        toast.success(`Task status updated to "${newStatus}".`, "Status Updated");
-      } catch (err) {
-        s.value = previousValue;
-        toast.error(err.message || "Failed to update task status");
-      } finally {
-        s.disabled = false;
-      }
+// Custom Status Pill Dropdown Interactions
+  document.querySelectorAll(".status-dropdown").forEach((dropdown) => {
+    const trigger = dropdown.querySelector(".status-dropdown-trigger");
+    const taskId = dropdown.dataset.taskId;
+
+    trigger.onclick = (e) => {
+      e.stopPropagation();
+      // Close other open dropdowns
+      document.querySelectorAll(".status-dropdown.open").forEach((d) => {
+        if (d !== dropdown) d.classList.remove("open");
+      });
+      dropdown.classList.toggle("open");
     };
+
+    dropdown.querySelectorAll(".status-option-btn").forEach((optBtn) => {
+      optBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const newStatus = optBtn.dataset.statusVal;
+        dropdown.classList.remove("open");
+
+        try {
+          await db.doc("tasks/" + taskId).update({ status: newStatus });
+          toast.success(`Task status updated to "${newStatus}".`, "Status Updated");
+        } catch (err) {
+          toast.error(err.message || "Failed to update status");
+        }
+      };
+    });
+  });
+
+  // Close open dropdowns when clicking anywhere outside
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".status-dropdown.open").forEach((d) => d.classList.remove("open"));
   });
 
   document.querySelectorAll("[data-dt]").forEach((b) => {
@@ -183,17 +199,24 @@ export function bindEvents(me) {
   });
 
   // Employee Password Reset
+// Modern Theme Password Reset Modal
   document.querySelectorAll("[data-rp]").forEach((b) => {
     b.onclick = async () => {
       const empId = b.dataset.rp;
       const emp = user(empId);
       const empName = emp ? emp.name : "Employee";
 
-      const p = prompt(`Enter new password for ${empName} (minimum 4 characters):`);
-      if (p === null) return;
+      const newPassword = await toast.prompt({
+        title: "Reset Password",
+        message: `Set a new login password for ${empName}:`,
+        placeholder: "Enter 4+ characters",
+        confirmText: "Update Password"
+      });
 
-      const newPassword = p.trim();
-      if (newPassword.length < 4) {
+      if (newPassword === null) return; // User pressed Cancel
+
+      const trimmed = newPassword.trim();
+      if (trimmed.length < 4) {
         toast.warning("Password must be at least 4 characters long.", "Invalid Password");
         return;
       }
@@ -203,8 +226,8 @@ export function bindEvents(me) {
       b.textContent = "Updating...";
 
       try {
-        await db.doc("users/" + empId).update({ password: newPassword });
-        toast.success(`Password for ${empName} updated successfully.`, "Password Reset");
+        await db.doc("users/" + empId).update({ password: trimmed });
+        toast.success(`Password for ${empName} has been updated.`, "Password Reset");
       } catch (err) {
         toast.error(err.message || "Failed to update password");
       } finally {
@@ -213,7 +236,6 @@ export function bindEvents(me) {
       }
     };
   });
-
   // Remove Employee
   document.querySelectorAll("[data-du]").forEach((b) => {
     b.onclick = async () => {
