@@ -1,4 +1,4 @@
-import { S, TOK, loadTokenFromStorage } from "./state.js";
+import { S, TOK, loadTokenFromStorage, loadTokenStorage } from "./state.js";
 import { $, dur, worked, active, user } from "./utils.js";
 import { API, loadData } from "./api.js";
 import { drawDashboardCharts, clearCharts } from "./charts.js";
@@ -61,7 +61,11 @@ function render() {
 window.addEventListener("app:render", render);
 
 async function init() {
-  loadTokenFromStorage();
+  if (typeof loadTokenFromStorage === "function") {
+    loadTokenFromStorage();
+  } else if (typeof loadTokenStorage === "function") {
+    loadTokenStorage();
+  }
 
   try {
     const state = await API("GET", "/state");

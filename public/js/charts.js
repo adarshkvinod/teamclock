@@ -1,4 +1,4 @@
-import { S, TYPES } from "./state.js";
+import { S, TASK_TYPES, TYPES } from "./state.js";
 import { day, hrs, worked, weekStart } from "./utils.js";
 
 let activeCharts = [];
@@ -11,7 +11,6 @@ export function clearCharts() {
 export function drawDashboardCharts() {
   clearCharts();
 
-  // 1. Daily Activity Bar Chart
   const days = [...Array(7)].map((_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - 6 + i);
@@ -53,22 +52,31 @@ export function drawDashboardCharts() {
     );
   }
 
-  // 2. Roles Distribution Doughnut Chart
   const ctxDonut = document.getElementById("donutChartRoles");
   if (ctxDonut) {
+    const categories = TASK_TYPES || TYPES;
     const ws = weekStart(),
       wkS = S.sessions.filter((x) => (x.end || Date.now()) >= ws);
-    const dataByRole = TYPES.map((t) => +hrs(wkS.filter((x) => x.type === t).reduce((a, b) => a + worked(b), 0)));
+    const dataByRole = categories.map((t) => +hrs(wkS.filter((x) => x.type === t).reduce((a, b) => a + worked(b), 0)));
 
     activeCharts.push(
       new Chart(ctxDonut, {
         type: "doughnut",
         data: {
-          labels: TYPES,
+          labels: categories,
           datasets: [
             {
-              data: dataByRole.every((v) => v === 0) ? [1, 1, 1, 1, 1] : dataByRole,
-              backgroundColor: ["#073b28", "#10b981", "#34d399", "#065f46", "#6ee7b7"],
+              data: dataByRole.every((v) => v === 0) ? Array(categories.length).fill(1) : dataByRole,
+              backgroundColor: [
+                "#073b28",
+                "#0a4933",
+                "#10b981",
+                "#34d399",
+                "#065f46",
+                "#059669",
+                "#6ee7b7",
+                "#a7f3d0"
+              ],
               borderWidth: 0
             }
           ]

@@ -1,12 +1,12 @@
 const { getDB } = require("../config/db");
-const { TYPES, ID_REGEX } = require("../config/constants");
+const { TASK_TYPES, ID_REGEX } = require("../config/constants");
 
 const str = (v, max = 24) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 exports.clockIn = async (req, res) => {
   const { id } = req.params;
   if (!ID_REGEX.test(id)) return res.status(400).json({ error: "Invalid session ID" });
-  if (!TYPES.includes(req.body.type)) return res.status(400).json({ error: "Invalid work type" });
+  if (!TASK_TYPES.includes(req.body.type)) return res.status(400).json({ error: "Invalid task/work type" });
 
   const db = await getDB();
   const col = db.collection("sessions");

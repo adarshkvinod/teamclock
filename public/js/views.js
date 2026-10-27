@@ -1,4 +1,4 @@
-import { S, TYPES } from "./state.js";
+import { S, EMPLOYEE_ROLES, TASK_TYPES, TYPES } from "./state.js";
 import { esc, user, tname, active, dur, hrs, worked, day, weekStart, tstate, getFormattedDate } from "./utils.js";
 
 export function getPageTitle(tab) {
@@ -96,7 +96,7 @@ export function layoutView(me, currentContent) {
               <div class="user-avatar">${esc(me.name.charAt(0))}</div>
               <div class="user-info">
                 <div class="user-name">${esc(me.name)}</div>
-                <div class="user-role">${adm ? "Admin Officer" : esc(me.workType)}</div>
+                <div class="user-role">${adm ? "Admin Officer" : esc(me.workType || "Employee")}</div>
               </div>
               <button class="btn-logout" id="out" title="Logout">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -119,6 +119,7 @@ export function dashboardView() {
   const doneTasks = S.tasks.filter((t) => t.status === "Done").length;
   const overdueTasks = S.tasks.filter((t) => tstate(t)[1] === "over").length;
   const activeWorkers = S.sessions.filter((x) => !x.end);
+  const categories = TASK_TYPES || TYPES;
 
   return `
     <div class="dashboard-grid">
@@ -220,7 +221,7 @@ export function dashboardView() {
             </div>
           </div>
           <div class="side-breakdown-list">
-            ${TYPES.map((type) => {
+            ${categories.map((type) => {
               const count = Math.round(wkS.filter((x) => x.type === type).reduce((a, b) => a + worked(b), 0) / 36e5);
               return `
                 <div class="side-breakdown-item">
@@ -266,6 +267,7 @@ export function dashboardView() {
 export function tasksView(adm) {
   const emps = S.users.filter((u) => u.role !== "admin");
   const ts = [...S.tasks].sort((a, b) => a.deadline.localeCompare(b.deadline));
+  const categories = TASK_TYPES || TYPES;
 
   const getStatusClass = (status) => {
     if (status === "Done") return "done";
@@ -279,16 +281,22 @@ export function tasksView(adm) {
         adm
           ? `
         <h3 style="margin-bottom: 6px;">Assign New Task</h3>
-        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 18px;">Set task title, assign to an employee, and define deadline</p>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 18px;">Set task title, category, assignee, and deadline</p>
         <div class="form-grid-3">
           <div class="input-group">
             <label>Task Title</label>
-            <input id="nt" placeholder="e.g. Design app onboarding flow">
+            <input id="nt" placeholder="e.g. Implement user authentication flow">
+          </div>
+          <div class="input-group">
+            <label>Task Category</label>
+            <select id="ntype">
+              ${categories.map((t) => `<option value="${t}">${t}</option>`).join("")}
+            </select>
           </div>
           <div class="input-group">
             <label>Assignee</label>
             <select id="na">
-              ${emps.map((u) => `<option value="${u.id}">${esc(u.name)} (${esc(u.workType)})</option>`).join("")}
+              ${emps.map((u) => `<option value="${u.id}">${esc(u.name)} (${esc(u.workType || "Employee")})</option>`).join("")}
             </select>
           </div>
           <div class="input-group">
@@ -310,6 +318,7 @@ export function tasksView(adm) {
           <thead>
             <tr>
               <th>Task</th>
+              <th>Category</th>
               <th>Assignee</th>
               <th>Deadline</th>
               <th>Status</th>
@@ -327,10 +336,10 @@ export function tasksView(adm) {
                       return `
                   <tr>
                     <td style="font-weight: 600;">${esc(t.title)}</td>
+                    <td><span class="growth-badge subtle">${esc(t.type || "General")}</span></td>
                     <td>${esc(user(t.assignee)?.name || "Unassigned")}</td>
                     <td>${t.deadline}</td>
                     <td>
-                      <!-- Custom Styled Dropdown Pill -->
                       <div class="status-dropdown" data-task-id="${t.id}">
                         <button type="button" class="status-dropdown-trigger status-trigger-${currentClass}">
                           <span class="status-dot"></span>
@@ -358,13 +367,12 @@ export function tasksView(adm) {
                         </div>
                       </div>
                     </td>
-                    <td><span class="tag-status ${cls}">${lbl}</span></td>
-                    ${adm ? `<td><button class="btn-action-del" data-dt="${t.id}">Delete</button></td>` : ""}
+                    <td><span class="tag-status ${cls}">${lbl}</span></td>${adm ? `<td><button class="btn-action-del" data-dt="${t.id}">Delete</button></td>` : ""}
                   </tr>
                 `;
                     })
                     .join("")
-                : '<tr><td colspan="6" style="text-align: center; color: var(--text-light);">No tasks found.</td></tr>'
+                : '<tr><td colspan="7" style="text-align: center; color: var(--text-light);">No tasks found.</td></tr>'
             }
           </tbody>
         </table>
@@ -375,11 +383,12 @@ export function tasksView(adm) {
 
 export function teamView() {
   const emps = S.users.filter((u) => u.role !== "admin");
+  const availableRoles = EMPLOYEE_ROLES;
 
   return `
     <div class="full-width-card">
       <h3 style="margin-bottom: 6px;">Create Employee Account</h3>
-      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 18px;">Add team members to enable time tracking and task assignment</p>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 18px;">Add team members and assign one or multiple roles</p>
       
       <div class="form-grid-3">
         <div class="input-group">
@@ -394,11 +403,22 @@ export function teamView() {
           <label>Password</label>
           <input id="ep" type="text" placeholder="Min 4 characters">
         </div>
-        <div class="input-group">
-          <label>Work Role</label>
-          <select id="et">
-            ${TYPES.map((t) => `<option>${t}</option>`).join("")}
-          </select>
+      </div>
+
+      <div class="input-group" style="margin-bottom: 20px;">
+        <label>Assigned Roles (Click to select multiple)</label>
+        <div class="role-selector-group">
+          ${availableRoles.map(
+            (role) => `
+            <label class="role-checkbox-pill">
+              <input type="checkbox" name="empRole" value="${esc(role)}">
+              <span class="role-pill-content">
+                <svg class="check-svg" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                ${esc(role)}
+              </span>
+            </label>
+          `
+          ).join("")}
         </div>
       </div>
 
@@ -414,7 +434,7 @@ export function teamView() {
             <tr>
               <th>Employee Name</th>
               <th>Username</th>
-              <th>Role</th>
+              <th>Assigned Roles</th>
               <th>Shift Status</th>
               <th>Manage</th>
             </tr>
@@ -423,12 +443,17 @@ export function teamView() {
             ${
               emps.length
                 ? emps
-                    .map(
-                      (u) => `
+                    .map((u) => {
+                      const userRoles = u.roles && u.roles.length ? u.roles : (u.workType ? u.workType.split(",").map(r => r.trim()) : []);
+                      return `
                 <tr>
                   <td style="font-weight: 600;">${esc(u.name)}</td>
                   <td style="color: var(--text-muted);">${esc(u.username)}</td>
-                  <td><span class="growth-badge subtle">${esc(u.workType)}</span></td>
+                  <td>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                      ${userRoles.map(r => `<span class="growth-badge subtle">${esc(r)}</span>`).join("")}
+                    </div>
+                  </td>
                   <td>
                     ${
                       active(u.id)
@@ -441,8 +466,8 @@ export function teamView() {
                     <button class="btn-action-del" data-du="${u.id}">Remove</button>
                   </td>
                 </tr>
-              `
-                    )
+              `;
+                    })
                     .join("")
                 : '<tr><td colspan="5" style="text-align: center; color: var(--text-light);">No employees registered yet.</td></tr>'
             }
@@ -457,6 +482,7 @@ export function trackView(me) {
   const s = active(me.id),
     b = s && (s.breaks || []).find((x) => !x.e);
   const mine = S.tasks.filter((t) => t.assignee === me.id && t.status !== "Done");
+  const categories = TASK_TYPES || TYPES;
 
   return `
     <div class="full-width-card" style="max-width: 600px; margin: 0 auto;">
@@ -482,9 +508,9 @@ export function trackView(me) {
       `
           : `
         <div class="input-group" style="margin-bottom: 16px;">
-          <label>Department / Work Type</label>
+          <label>Work Type / Category</label>
           <select id="wt">
-            ${TYPES.map((t) => `<option ${t === me.workType ? "selected" : ""}>${t}</option>`).join("")}
+            ${categories.map((t) => `<option value="${t}">${t}</option>`).join("")}
           </select>
         </div>
         <div class="input-group" style="margin-bottom: 24px;">

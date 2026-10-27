@@ -1230,3 +1230,65 @@ body {
   stroke-width: 2.5;
   fill: none;
 }
+/* Multi-Select Role Checkbox Badges */
+.role-selector-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.role-checkbox-pill {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.role-checkbox-pill input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.role-pill-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #f8fafc;
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.role-pill-content .check-svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  fill: none;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: all 0.2s ease;
+}
+
+.role-checkbox-pill input:checked + .role-pill-content {
+  background: var(--primary-pine);
+  border-color: var(--primary-pine);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(7, 59, 40, 0.18);
+}
+
+.role-checkbox-pill input:checked + .role-pill-content .check-svg {
+  opacity: 1;
+  stroke: var(--accent-emerald);
+  transform: scale(1);
+}
+
+.role-checkbox-pill:hover .role-pill-content {
+  border-color: var(--accent-emerald);
+}

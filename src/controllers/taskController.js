@@ -1,5 +1,5 @@
 const { getDB } = require("../config/db");
-const { STATUS, DAY_REGEX, ID_REGEX } = require("../config/constants");
+const { STATUS, DAY_REGEX, ID_REGEX, TASK_TYPES } = require("../config/constants");
 
 const str = (v, max = 200) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
@@ -11,6 +11,7 @@ exports.createTask = async (req, res) => {
 
   const title = str(req.body.title, 200);
   const { assignee, deadline } = req.body;
+  const type = str(req.body.type, 80);
 
   if (!title || !DAY_REGEX.test(deadline)) return res.status(400).json({ error: "Invalid task details" });
 
@@ -23,6 +24,7 @@ exports.createTask = async (req, res) => {
     title,
     assignee,
     deadline,
+    type: TASK_TYPES.includes(type) ? type : "Mobile App Development",
     status: "To do",
     created: Date.now()
   });
@@ -44,6 +46,7 @@ exports.updateTask = async (req, res) => {
   if (isAdmin) {
     if (str(req.body.title, 200)) update.title = str(req.body.title, 200);
     if (DAY_REGEX.test(req.body.deadline)) update.deadline = req.body.deadline;
+    if (TASK_TYPES.includes(req.body.type)) update.type = req.body.type;
     if (req.body.assignee && (await db.collection("users").findOne({ _id: req.body.assignee }))) {
       update.assignee = req.body.assignee;
     }
