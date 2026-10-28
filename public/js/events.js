@@ -1,5 +1,5 @@
 import { S, clearTokenStorage, TASK_TYPES, TYPES, EMPLOYEE_ROLES, ROLES } from "./state.js";
-import { $, uid, user, active, weekStart, day, tname, hrs, worked, esc, pname, withLoading } from "./utils.js";
+import { $, uid, user, active, weekStart, day, tname, hrs, worked, esc, withLoading } from "./utils.js";
 import { db, authenticate } from "./api.js";
 import { toast } from "./toast.js";
 import { drawDashboardCharts } from "./charts.js";
@@ -61,15 +61,19 @@ export function bindEvents(me) {
 
   if (toggleBtn) {
     toggleBtn.onclick = () => {
-      const isCustom = taskCustomWrap.style.display !== "none";
+      const isCustom = taskCustomWrap && taskCustomWrap.style.display !== "none";
       if (isCustom) {
-        taskCustomWrap.style.display = "none";
-        taskSelectWrap.style.display = "block";
-        if (wk && wk.value === "__custom__") wk.value = "";
+        if (taskCustomWrap) taskCustomWrap.style.display = "none";
+        if (taskSelectWrap) taskSelectWrap.style.display = "block";
+        if (wk && wk.value === "__custom__") {
+          wk.value = "";
+          const lbl = taskSelectWrap?.querySelector(".custom-select-label");
+          if (lbl) lbl.textContent = "– General Work / No specific task –";
+        }
         toggleBtn.textContent = "✏️ Type custom task";
       } else {
-        taskSelectWrap.style.display = "none";
-        taskCustomWrap.style.display = "block";
+        if (taskSelectWrap) taskSelectWrap.style.display = "none";
+        if (taskCustomWrap) taskCustomWrap.style.display = "block";
         toggleBtn.textContent = "📋 Choose assigned task";
         if (customWk) customWk.focus();
       }
@@ -79,25 +83,16 @@ export function bindEvents(me) {
   if (wk) {
     wk.onchange = () => {
       if (wk.value === "__custom__") {
-        taskSelectWrap.style.display = "none";
-        taskCustomWrap.style.display = "block";
+        if (taskSelectWrap) taskSelectWrap.style.display = "none";
+        if (taskCustomWrap) taskCustomWrap.style.display = "block";
         if (toggleBtn) toggleBtn.textContent = "📋 Choose assigned task";
         if (customWk) customWk.focus();
       }
     };
   }
 
-  // Time tracker: Clock In (Validates project selection with loading state)
+  // Time tracker: Clock In (No project required)
   on("#ci", async () => {
-    const wp = $("#wp");
-    const projectId = wp ? wp.value : "";
-
-    if (!projectId) {
-      toast.warning("Please select a project before starting your shift.", "Project Required");
-      if (wp) wp.focus();
-      return;
-    }
-
     const isCustom = taskCustomWrap && taskCustomWrap.style.display !== "none";
     let chosenTask = "";
 
@@ -107,12 +102,15 @@ export function bindEvents(me) {
       chosenTask = wk && wk.value !== "__custom__" ? wk.value : "";
     }
 
+    const wtInput = $("#wt");
+    const workType = wtInput ? (wtInput.value || wtInput.textContent || "").trim() : "";
+    const defaultType = (TASK_TYPES || TYPES || ["Mobile App Development"])[0];
+
     await withLoading("#ci", async () => {
       try {
         await db.doc("sessions/" + uid()).set({
           uid: me.id,
-          projectId: projectId,
-          type: $("#wt") ? $("#wt").value : "",
+          type: workType || defaultType,
           taskId: chosenTask,
           start: Date.now(),
           end: null,
@@ -168,66 +166,11 @@ export function bindEvents(me) {
     });
   });
 
-  // Project Creation (Admin)
-  on("#ap", async () => {
-    const name = $("#pn") ? $("#pn").value.trim() : "";
-    const desc = $("#pd") ? $("#pd").value.trim() : "";
-
-    if (!name) {
-      toast.warning("Please enter a project name.", "Project Name Required");
-      if ($("#pn")) $("#pn").focus();
-      return;
-    }
-
-    await withLoading("#ap", async () => {
-      try {
-        await db.doc("projects/" + uid()).set({
-          name,
-          description: desc,
-          status: "Active",
-          created: Date.now()
-        });
-        if ($("#pn")) $("#pn").value = "";
-        if ($("#pd")) $("#pd").value = "";
-        toast.success(`Project "${name}" created successfully.`, "Project Added");
-      } catch (err) {
-        toast.error(err.message || "Failed to create project");
-      }
-    });
-  });
-
-  // Project Deletion (Admin)
-  document.querySelectorAll("[data-dp]").forEach((b) => {
-    b.onclick = async () => {
-      const projId = b.dataset.dp;
-      const proj = S.projects?.find((p) => (p.id || p._id) === projId);
-      const projName = proj ? proj.name : "Project";
-
-      const ok = await toast.confirm({
-        title: "Delete Project",
-        message: `Are you sure you want to delete "${projName}"? Previous timesheets logged under this project will remain intact.`,
-        confirmText: "Delete Project",
-        isDanger: true
-      });
-
-      if (ok) {
-        await withLoading(b, async () => {
-          try {
-            await db.doc("projects/" + projId).delete();
-            toast.info(`Project "${projName}" deleted.`);
-          } catch (err) {
-            toast.error(err.message || "Failed to delete project");
-          }
-        });
-      }
-    };
-  });
-
   // Task creation
   on("#ac", async () => {
-    const t = $("#nt").value.trim();
-    const a = $("#na").value;
-    const d = $("#nd").value;
+    const t = $("#nt") ? $("#nt").value.trim() : "";
+    const a = $("#na") ? $("#na").value : "";
+    const d = $("#nd") ? $("#nd").value : "";
     const type = $("#ntype") ? $("#ntype").value : (TASK_TYPES || TYPES)[0];
 
     if (!t || !a || !d) {
@@ -245,7 +188,7 @@ export function bindEvents(me) {
           status: "To do",
           created: Date.now()
         });
-        $("#nt").value = "";
+        if ($("#nt")) $("#nt").value = "";
         toast.success(`Task "${t}" (${type}) has been assigned.`, "Task Created");
       } catch (err) {
         toast.error(err.message || "Failed to assign task");
@@ -259,13 +202,14 @@ export function bindEvents(me) {
     const menu = dropdown.querySelector(".status-dropdown-menu");
     const taskId = dropdown.dataset.taskId;
 
+    if (!trigger || !menu) return;
+
     trigger.onclick = (e) => {
       e.stopPropagation();
       const isOpen = dropdown.classList.contains("open");
 
-      document.querySelectorAll(".status-dropdown.open").forEach((d) => {
-        d.classList.remove("open");
-      });
+      document.querySelectorAll(".status-dropdown.open").forEach((d) => d.classList.remove("open"));
+      document.querySelectorAll(".custom-select-wrap.open").forEach((d) => d.classList.remove("open"));
 
       if (!isOpen) {
         const rect = trigger.getBoundingClientRect();
@@ -322,9 +266,9 @@ export function bindEvents(me) {
 
   // Employee creation with multiple roles
   on("#ae", async () => {
-    const n = $("#en").value.trim();
-    const u = $("#eu").value.trim().toLowerCase();
-    const p = $("#ep").value;
+    const n = $("#en") ? $("#en").value.trim() : "";
+    const u = $("#eu") ? $("#eu").value.trim().toLowerCase() : "";
+    const p = $("#ep") ? $("#ep").value : "";
 
     const selectedRoles = Array.from(document.querySelectorAll("input[name='empRole']:checked")).map(
       (cb) => cb.value
@@ -353,9 +297,9 @@ export function bindEvents(me) {
           roles: selectedRoles,
           workType: selectedRoles.join(", ")
         });
-        $("#en").value = "";
-        $("#eu").value = "";
-        $("#ep").value = "";
+        if ($("#en")) $("#en").value = "";
+        if ($("#eu")) $("#eu").value = "";
+        if ($("#ep")) $("#ep").value = "";
         document.querySelectorAll("input[name='empRole']").forEach((cb) => (cb.checked = false));
         toast.success(`Account created for ${n} (${selectedRoles.join(", ")}).`, "Employee Added");
       } catch (err) {
@@ -419,7 +363,7 @@ export function bindEvents(me) {
     };
   });
 
-  // Export CSV (Includes Project column)
+  // Export CSV
   on("#csv", () => {
     const adm = me.role === "admin";
     const rows = (adm ? S.sessions : S.sessions.filter((x) => x.uid === me.id && x.start >= weekStart())).sort(
@@ -431,10 +375,9 @@ export function bindEvents(me) {
     }
     const q = (v) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
     const csv = [
-      "Employee,Project,Date,Work type,Task,Clock in,Clock out,Break minutes,Hours",
+      "Employee,Date,Work type,Task,Clock in,Clock out,Break minutes,Hours",
       ...rows.map((x) => [
         user(x.uid)?.name,
-        pname(x.projectId),
         day(x.start),
         x.type,
         tname(x.taskId),
@@ -468,7 +411,7 @@ export function bindEvents(me) {
       opt.onclick = (e) => {
         e.stopPropagation();
         const days = parseInt(opt.dataset.days, 10);
-        const labelText = opt.querySelector("span").textContent;
+        const labelText = opt.querySelector("span")?.textContent || "";
 
         filterDropdown.querySelectorAll(".chart-filter-opt").forEach((o) => {
           o.classList.remove("active");
@@ -516,7 +459,6 @@ document.addEventListener("click", (e) => {
     "Project Manager"
   ];
 
-  // Remove any stale modals
   const existing = document.querySelector(".edit-emp-overlay");
   if (existing) existing.remove();
 
@@ -574,58 +516,144 @@ document.addEventListener("click", (e) => {
     setTimeout(() => overlay.remove(), 200);
   };
 
-  overlay.querySelector("#btnCancelEditEmp").onclick = close;
+  const cancelBtn = overlay.querySelector("#btnCancelEditEmp");
+  if (cancelBtn) cancelBtn.onclick = close;
   overlay.onclick = (event) => {
     if (event.target === overlay) close();
   };
 
-  overlay.querySelector("#btnSaveEditEmp").onclick = async () => {
-    const newName = overlay.querySelector("#editEmpName").value.trim();
-    const selectedRoles = Array.from(overlay.querySelectorAll("input[name='editEmpRole']:checked")).map(
-      (cb) => cb.value
+  const saveBtn = overlay.querySelector("#btnSaveEditEmp");
+  if (saveBtn) {
+    saveBtn.onclick = async () => {
+      const newName = overlay.querySelector("#editEmpName")?.value.trim();
+      const selectedRoles = Array.from(overlay.querySelectorAll("input[name='editEmpRole']:checked")).map(
+        (cb) => cb.value
+      );
+
+      if (!newName) {
+        toast.warning("Employee name cannot be empty.", "Validation Error");
+        return;
+      }
+
+      if (selectedRoles.length === 0) {
+        toast.warning("Please select at least one role.", "Validation Error");
+        return;
+      }
+
+      await withLoading(saveBtn, async () => {
+        try {
+          await db.doc("users/" + empId).update({
+            name: newName,
+            roles: selectedRoles,
+            workType: selectedRoles.join(", ")
+          });
+
+          close();
+          toast.success(`Updated ${newName}'s details successfully.`, "Employee Updated");
+        } catch (err) {
+          toast.error(err.message || "Failed to update employee");
+        }
+      });
+    };
+  }
+});
+
+// ================= GLOBAL CUSTOM SELECT DROPDOWN DELEGATION =================
+document.addEventListener("click", (e) => {
+  const trigger = e.target.closest(".custom-select-trigger");
+  const opt = e.target.closest(".custom-select-opt");
+  const allSelects = document.querySelectorAll(".custom-select-wrap");
+
+  // 1. When an option is clicked
+  if (opt) {
+    const wrap = opt.closest(".custom-select-wrap");
+    if (!wrap) return;
+
+    const val = opt.dataset.val ?? "";
+    const labelSpan = opt.querySelector("span");
+    const labelText = labelSpan ? labelSpan.textContent.trim() : opt.textContent.trim();
+    const hiddenInput = wrap.querySelector("input[type='hidden']");
+    const labelDisplay = wrap.querySelector(".custom-select-label");
+
+    if (hiddenInput) {
+      hiddenInput.value = val;
+      hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    if (labelDisplay) {
+      labelDisplay.textContent = labelText;
+    }
+
+    wrap.querySelectorAll(".custom-select-opt").forEach((o) => {
+      o.classList.remove("selected");
+      const chk = o.querySelector(".opt-check");
+      if (chk) chk.remove();
+    });
+
+    opt.classList.add("selected");
+    opt.insertAdjacentHTML(
+      "beforeend",
+      `<svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`
     );
 
-    if (!newName) {
-      toast.warning("Employee name cannot be empty.", "Validation Error");
-      return;
+    wrap.classList.remove("open");
+
+    // Seamless toggle if user clicks "Custom task (type manually)..."
+    if (hiddenInput && hiddenInput.id === "wk" && val === "__custom__") {
+      const taskSelectWrap = document.getElementById("taskSelectWrap");
+      const taskCustomWrap = document.getElementById("taskCustomWrap");
+      const customWk = document.getElementById("customWk");
+      const toggleBtn = document.getElementById("btnToggleTaskMode");
+
+      if (taskSelectWrap) taskSelectWrap.style.display = "none";
+      if (taskCustomWrap) taskCustomWrap.style.display = "block";
+      if (toggleBtn) toggleBtn.textContent = "📋 Choose assigned task";
+      if (customWk) customWk.focus();
     }
+    return;
+  }
 
-    if (selectedRoles.length === 0) {
-      toast.warning("Please select at least one role.", "Validation Error");
-      return;
-    }
+  // 2. When a dropdown trigger button is clicked
+  if (trigger) {
+    e.stopPropagation();
+    const wrap = trigger.closest(".custom-select-wrap");
+    if (!wrap) return;
 
-    const saveBtn = overlay.querySelector("#btnSaveEditEmp");
-    await withLoading(saveBtn, async () => {
-      try {
-        await db.doc("users/" + empId).update({
-          name: newName,
-          roles: selectedRoles,
-          workType: selectedRoles.join(", ")
-        });
+    const isOpen = wrap.classList.contains("open");
 
-        close();
-        toast.success(`Updated ${newName}'s details successfully.`, "Employee Updated");
-      } catch (err) {
-        toast.error(err.message || "Failed to update employee");
-      }
+    allSelects.forEach((s) => {
+      if (s !== wrap) s.classList.remove("open");
     });
-  };
-});
+    document.querySelectorAll(".status-dropdown.open").forEach((d) => d.classList.remove("open"));
 
-// Global outside click and scroll listeners
-document.addEventListener("click", () => {
+    wrap.classList.toggle("open", !isOpen);
+    return;
+  }
+
+  // 3. Outside clicks close all open dropdowns
+  allSelects.forEach((s) => s.classList.remove("open"));
   document.querySelectorAll(".status-dropdown.open").forEach((d) => d.classList.remove("open"));
 });
+
+// Scroll & Resize listeners (prevents closing when scrolling inside dropdown list)
 window.addEventListener(
   "scroll",
-  () => {
+  (e) => {
+    if (
+      e.target &&
+      e.target.classList &&
+      (e.target.classList.contains("custom-select-menu") || e.target.classList.contains("status-dropdown-menu"))
+    ) {
+      return;
+    }
     document.querySelectorAll(".status-dropdown.open").forEach((d) => d.classList.remove("open"));
+    document.querySelectorAll(".custom-select-wrap.open").forEach((d) => d.classList.remove("open"));
   },
   true
 );
+
 window.addEventListener("resize", () => {
   document.querySelectorAll(".status-dropdown.open").forEach((d) => d.classList.remove("open"));
+  document.querySelectorAll(".custom-select-wrap.open").forEach((d) => d.classList.remove("open"));
 });
 
 export function bindAuthEvents(isSetup) {
@@ -636,21 +664,21 @@ export function bindAuthEvents(isSetup) {
 
   if (isSetup) {
     const setupSubmit = async () => {
-      const n = $("#sn").value.trim();
-      const u = $("#su").value.trim().toLowerCase();
-      const p = $("#sp").value;
+      const n = $("#sn") ? $("#sn").value.trim() : "";
+      const u = $("#su") ? $("#su").value.trim().toLowerCase() : "";
+      const p = $("#sp") ? $("#sp").value : "";
 
       if (!n || !u || p.length < 4) {
-        $("#se").textContent = "Fill all fields (password 4+ characters).";
+        if ($("#se")) $("#se").textContent = "Fill all fields (password 4+ characters).";
         return;
       }
-      $("#se").textContent = "";
+      if ($("#se")) $("#se").textContent = "";
 
       await withLoading("#sb", async () => {
         try {
           await authenticate("/setup", { name: n, username: u, password: p });
         } catch (e) {
-          $("#se").textContent = e.message;
+          if ($("#se")) $("#se").textContent = e.message;
         }
       });
     };
