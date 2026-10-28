@@ -15,7 +15,6 @@ import {
 import { bindEvents, bindAuthEvents } from "./events.js";
 
 function tick() {
-  // 1. Update personal shift timers (Workstation display & Sidebar widget)
   const s = active(S.me);
   if (s) {
     const currentDuration = dur(worked(s));
@@ -25,7 +24,6 @@ function tick() {
     if (sidebarTimer) sidebarTimer.textContent = currentDuration;
   }
 
-  // 2. Update active employee timers in the Admin "Team Clocked In" card
   document.querySelectorAll("[data-worker-timer]").forEach((el) => {
     const sessionId = el.dataset.workerTimer;
     const session = S.sessions.find((x) => (x.id || x._id) === sessionId);
@@ -59,7 +57,7 @@ function render() {
       content = dashboardView(me);
       break;
     case "tasks":
-      content = tasksView(adm);
+      content = tasksView(adm, me);
       break;
     case "team":
       content = teamView();
@@ -82,7 +80,6 @@ function render() {
   }
 }
 
-// Global render trigger
 window.addEventListener("app:render", render);
 
 async function init() {
@@ -114,11 +111,8 @@ async function init() {
   }
 
   render();
-
-  // 1-second timer ticker
   setInterval(tick, 1000);
 
-  // Background poller every 15 seconds
   setInterval(() => {
     if (TOK && document.visibilityState === "visible") {
       loadData(true).catch(() => {});

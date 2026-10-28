@@ -30,12 +30,10 @@ function renderThemedCalendar() {
 
   let daysHtml = "";
 
-  // Pad previous month days
   for (let i = firstDay - 1; i >= 0; i--) {
     daysHtml += `<div class="cal-day other-month">${daysInPrevMonth - i}</div>`;
   }
 
-  // Current month days
   for (let d = 1; d <= daysInMonth; d++) {
     const dStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const isSel = dStr === selectedVal ? "selected" : "";
@@ -43,7 +41,6 @@ function renderThemedCalendar() {
     daysHtml += `<button type="button" class="cal-day ${isSel} ${isToday}" data-cal-date="${dStr}">${d}</button>`;
   }
 
-  // Pad trailing days to balance grid (up to 35 or 42 cells)
   const totalCells = firstDay + daysInMonth;
   const nextMonthDays = (7 - (totalCells % 7)) % 7;
   for (let d = 1; d <= nextMonthDays; d++) {
@@ -70,10 +67,8 @@ function renderThemedCalendar() {
     </div>
   `;
 
-  // Prevent clicks inside the calendar from triggering outside-dismissal
   menu.onclick = (e) => e.stopPropagation();
 
-  // Month navigation: previous
   const prevBtn = menu.querySelector("#calPrev");
   if (prevBtn) {
     prevBtn.onclick = (e) => {
@@ -87,7 +82,6 @@ function renderThemedCalendar() {
     };
   }
 
-  // Month navigation: next
   const nextBtn = menu.querySelector("#calNext");
   if (nextBtn) {
     nextBtn.onclick = (e) => {
@@ -101,7 +95,6 @@ function renderThemedCalendar() {
     };
   }
 
-  // Day selection
   menu.querySelectorAll(".cal-day[data-cal-date]").forEach((btn) => {
     btn.onclick = (e) => {
       e.stopPropagation();
@@ -112,7 +105,6 @@ function renderThemedCalendar() {
     };
   });
 
-  // Today button
   const todayBtn = menu.querySelector("#calToday");
   if (todayBtn) {
     todayBtn.onclick = (e) => {
@@ -125,7 +117,6 @@ function renderThemedCalendar() {
     };
   }
 
-  // Clear button
   const clearBtn = menu.querySelector("#calClear");
   if (clearBtn) {
     clearBtn.onclick = (e) => {
@@ -309,7 +300,6 @@ export function bindEvents(me) {
       e.stopPropagation();
       const isOpen = dateWrap.classList.contains("open");
 
-      // Close other dropdowns
       document.querySelectorAll(".custom-select-wrap.open").forEach((w) => w.classList.remove("open"));
       document.querySelectorAll(".status-dropdown.open").forEach((d) => d.classList.remove("open"));
 
@@ -372,6 +362,101 @@ export function bindEvents(me) {
     });
   });
 
+  // Task View Mode Switcher (Kanban vs Table)
+  document.querySelectorAll("[data-view-mode]").forEach((btn) => {
+    btn.onclick = () => {
+      S.taskViewMode = btn.dataset.viewMode;
+      window.dispatchEvent(new CustomEvent("app:render"));
+    };
+  });
+
+  // ================= KANBAN DRAG & DROP CONTROLLER =================
+  document.querySelectorAll(".kanban-card").forEach((card) => {
+    card.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("text/plain", card.dataset.taskId);
+      e.dataTransfer.effectAllowed = "move";
+      card.classList.add("is-dragging");
+    });
+
+    card.addEventListener("dragend", () => {
+      card.classList.remove("is-dragging");
+      document.querySelectorAll(".kanban-column-body").forEach((col) => {
+        col.classList.remove("is-dragover");
+      });
+    });
+  });
+
+  document.querySelectorAll(".kanban-column-body").forEach((col) => {
+    col.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      col.classList.add("is-dragover");
+    });
+
+    col.addEventListener("dragleave", (e) => {
+      if (!col.contains(e.relatedTarget)) {
+        col.classList.remove("is-dragover");
+      }
+    });
+
+    col.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      col.classList.remove("is-dragover");
+      const taskId = e.dataTransfer.getData("text/plain");
+      const targetStatus = col.dataset.statusCol;
+      if (!taskId || !targetStatus) return;
+
+      const currentTask = S.tasks?.find((t) => t.id === taskId);
+      if (!currentTask || currentTask.status === targetStatus) return;
+
+      try {
+        await db.doc("tasks/" + taskId).update({ status: targetStatus });
+        toast.success(`Moved to "${targetStatus}".`, "Status Updated");
+      } catch (err) {
+        toast.error(err.message || "Failed to move task");
+      }
+    });
+  });
+
+  // Kanban Quick Move Buttons (For Mobile & One-Click Navigation)
+  document.querySelectorAll("[data-move-task]").forEach((btn) => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const taskId = btn.dataset.moveTask;
+      const targetStatus = btn.dataset.moveTo;
+      if (!taskId || !targetStatus) return;
+
+      try {
+        await db.doc("tasks/" + taskId).update({ status: targetStatus });
+        toast.success(`Task moved to "${targetStatus}".`, "Status Updated");
+      } catch (err) {
+        toast.error(err.message || "Failed to update status");
+      }
+    };
+  });
+
+  // Kanban Card Delete (Admin)
+  document.querySelectorAll(".btn-action-del-card").forEach((btn) => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const taskId = btn.dataset.dt;
+      const ok = await toast.confirm({
+        title: "Delete Task",
+        message: "This will permanently delete this task for all assignees.",
+        confirmText: "Delete",
+        isDanger: true
+      });
+      if (ok) {
+        try {
+          await db.doc("tasks/" + taskId).delete();
+          toast.info("Task removed successfully.");
+        } catch (err) {
+          toast.error(err.message || "Failed to delete task");
+        }
+      }
+    };
+  });
+
   // Status dropdown with fixed positioning
   document.querySelectorAll(".status-dropdown").forEach((dropdown) => {
     const trigger = dropdown.querySelector(".status-dropdown-trigger");
@@ -419,8 +504,9 @@ export function bindEvents(me) {
     });
   });
 
-  // Delete Task
+  // Delete Task in Table
   document.querySelectorAll("[data-dt]").forEach((b) => {
+    if (b.classList.contains("btn-action-del-card")) return; // Handled separately
     b.onclick = async () => {
       const ok = await toast.confirm({
         title: "Delete Task",
@@ -441,7 +527,7 @@ export function bindEvents(me) {
     };
   });
 
-  // Employee creation with multiple roles
+  // Employee creation
   on("#ae", async () => {
     const n = $("#en") ? $("#en").value.trim() : "";
     const u = $("#eu") ? $("#eu").value.trim().toLowerCase() : "";
@@ -741,7 +827,6 @@ document.addEventListener("click", (e) => {
   const opt = e.target.closest(".custom-select-opt");
   const allSelects = document.querySelectorAll(".custom-select-wrap");
 
-  // 1. When an option is clicked
   if (opt) {
     const wrap = opt.closest(".custom-select-wrap");
     if (!wrap) return;
@@ -774,7 +859,6 @@ document.addEventListener("click", (e) => {
 
     wrap.classList.remove("open");
 
-    // Toggle custom task field if selected
     if (hiddenInput && hiddenInput.id === "wk" && val === "__custom__") {
       const taskSelectWrap = document.getElementById("taskSelectWrap");
       const taskCustomWrap = document.getElementById("taskCustomWrap");
@@ -789,7 +873,6 @@ document.addEventListener("click", (e) => {
     return;
   }
 
-  // 2. When a dropdown trigger button is clicked
   if (trigger) {
     e.stopPropagation();
     const wrap = trigger.closest(".custom-select-wrap");
@@ -807,7 +890,6 @@ document.addEventListener("click", (e) => {
     return;
   }
 
-  // 3. Outside clicks close all open dropdowns
   allSelects.forEach((s) => s.classList.remove("open"));
   document.querySelectorAll(".status-dropdown.open").forEach((d) => d.classList.remove("open"));
   document.querySelectorAll(".custom-datepicker-wrap.open").forEach((d) => d.classList.remove("open"));

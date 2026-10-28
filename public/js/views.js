@@ -375,22 +375,37 @@ export function dashboardView(me) {
   `;
 }
 
-export function tasksView(adm) {
+export function tasksView(adm, me) {
   const emps = S.users.filter((u) => u.role !== "admin");
-  const ts = [...S.tasks].sort((a, b) => a.deadline.localeCompare(b.deadline));
+  const allTasks = S.tasks || [];
+  
+  // RBAC: Admin sees all tasks; Employee sees strictly their own assigned tasks
+  const ts = (adm ? allTasks : allTasks.filter((t) => t.assignee === me?.id)).sort(
+    (a, b) => a.deadline.localeCompare(b.deadline)
+  );
+  
   const categories = TASK_TYPES || TYPES;
-
   const defaultCategory = categories[0] || "Mobile App Development";
   const defaultEmpId = emps.length ? emps[0].id : "";
   const defaultEmpLabel = emps.length
     ? `${emps[0].name} (${emps[0].workType || "Employee"})`
     : "Select Assignee...";
 
+  // Default to kanban board mode
+  if (!S.taskViewMode) S.taskViewMode = "kanban";
+  const isKanban = S.taskViewMode === "kanban";
+
   const getStatusClass = (status) => {
     if (status === "Done") return "done";
     if (status === "In progress") return "progress";
     return "todo";
   };
+
+  const columns = [
+    { title: "To Do", key: "To do", dotColor: "#64748b" },
+    { title: "In Progress", key: "In progress", dotColor: "#0ea5e9" },
+    { title: "Done", key: "Done", dotColor: "#10b981" }
+  ];
 
   return `
     <div class="full-width-card">
@@ -465,60 +480,161 @@ export function tasksView(adm) {
         </div>
       ` : ""}
 
-      <h3>All Tasks (${ts.length})</h3>
-      <div style="overflow-x: auto;">
-        <table class="styled-table">
-          <thead>
-            <tr>
-              <th>Task</th>
-              <th>Category</th>
-              <th>Assignee</th>
-              <th>Deadline</th>
-              <th>Status</th>
-              <th>State</th>
-              ${adm ? "<th>Action</th>" : ""}
-            </tr>
-          </thead>
-          <tbody>
-            ${ts.length ? ts.map((t) => {
-              const [lbl, cls] = tstate(t);
-              const currentClass = getStatusClass(t.status);
-              return `
-                <tr>
-                  <td style="font-weight: 600;">${esc(t.title)}</td>
-                  <td><span class="growth-badge subtle">${esc(t.type || "General")}</span></td>
-                  <td>${esc(user(t.assignee)?.name || "Unassigned")}</td>
-                  <td>${t.deadline}</td>
-                  <td>
-                    <div class="status-dropdown" data-task-id="${t.id}">
-                      <button type="button" class="status-dropdown-trigger status-trigger-${currentClass}">
-                        <span class="status-dot"></span>
-                        <span class="status-label-text">${esc(t.status)}</span>
-                        <svg class="status-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-                      </button>
-                      <div class="status-dropdown-menu">
-                        ${["To do", "In progress", "Done"].map((opt) => {
-                          const optClass = getStatusClass(opt);
-                          const isSelected = opt === t.status;
-                          return `
-                            <button type="button" class="status-option-btn ${isSelected ? "selected" : ""}" data-status-val="${opt}">
-                              <span class="status-dot status-trigger-${optClass}"></span>
-                              <span>${opt}</span>
-                              ${isSelected ? `<svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
-                            </button>
-                          `;
-                        }).join("")}
-                      </div>
-                    </div>
-                  </td>
-                  <td><span class="tag-status ${cls}">${lbl}</span></td>
-                  ${adm ? `<td><button class="btn-action-del" data-dt="${t.id}">Delete</button></td>` : ""}
-                </tr>
-              `;
-            }).join("") : '<tr><td colspan="7" style="text-align: center; color: var(--text-light);">No tasks found.</td></tr>'}
-          </tbody>
-        </table>
+      <!-- Header with Kanban vs Table Switcher -->
+      <div class="tasks-header-bar">
+        <div>
+          <h3>${adm ? "Team Tasks & Deadlines" : "My Assigned Tasks"} (${ts.length})</h3>
+          <p style="color: var(--text-muted); font-size: 13px; margin-top: 2px;">
+            ${adm ? "Manage, track, and update all team task states" : "Drag or move your assigned tasks across workflow stages"}
+          </p>
+        </div>
+        <div class="view-switcher-pill">
+          <button type="button" class="btn-view-mode ${isKanban ? "active" : ""}" data-view-mode="kanban">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><rect width="6" height="18" x="3" y="3" rx="1"/><rect width="6" height="12" x="15" y="3" rx="1"/></svg>
+            <span>Kanban Board</span>
+          </button>
+          <button type="button" class="btn-view-mode ${!isKanban ? "active" : ""}" data-view-mode="table">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 3h18v18H3zM3 9h18M3 15h18M9 3v18"/></svg>
+            <span>Table View</span>
+          </button>
+        </div>
       </div>
+
+      ${isKanban ? `
+        <!-- ================= KANBAN BOARD ================= -->
+        <div class="kanban-board">
+          ${columns.map((col) => {
+            const colTasks = ts.filter((t) => (t.status || "To do") === col.key);
+            return `
+              <div class="kanban-column" data-col-status="${col.key}">
+                <div class="kanban-column-header">
+                  <div class="kanban-column-title">
+                    <span class="status-dot" style="background: ${col.dotColor};"></span>
+                    <span>${col.title}</span>
+                  </div>
+                  <span class="kanban-count-badge">${colTasks.length}</span>
+                </div>
+
+                <div class="kanban-column-body" data-status-col="${col.key}">
+                  ${colTasks.length ? colTasks.map((t) => {
+                    const [lbl, cls] = tstate(t);
+                    return `
+                      <div class="kanban-card" draggable="true" data-task-id="${t.id}">
+                        <div class="kanban-card-top">
+                          <span class="growth-badge subtle">${esc(t.type || "General")}</span>
+                          <span class="tag-status ${cls}">${lbl}</span>
+                        </div>
+
+                        <div class="kanban-card-title">${esc(t.title)}</div>
+
+                        <div class="kanban-card-meta">
+                          <div class="meta-pill meta-deadline">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                            ${t.deadline}
+                          </div>
+                          ${adm ? `
+                            <div class="meta-pill meta-assignee" title="Assignee">
+                              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                              ${esc(user(t.assignee)?.name || "Unassigned")}
+                            </div>
+                          ` : ""}
+                        </div>
+
+                        <!-- Quick Move Controls for Touch / One-Click -->
+                        <div class="kanban-card-footer">
+                          <div class="kanban-quick-actions">
+                            ${col.key !== "To do" ? `
+                              <button type="button" class="btn-kanban-shift" data-move-task="${t.id}" data-move-to="To do" title="Move to To do">
+                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                                <span>To do</span>
+                              </button>
+                            ` : ""}
+                            ${col.key !== "In progress" ? `
+                              <button type="button" class="btn-kanban-shift" data-move-task="${t.id}" data-move-to="In progress" title="Move to In progress">
+                                <span>In progress</span>
+                              </button>
+                            ` : ""}
+                            ${col.key !== "Done" ? `
+                              <button type="button" class="btn-kanban-shift" data-move-task="${t.id}" data-move-to="Done" title="Move to Done">
+                                <span>Done</span>
+                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                              </button>
+                            ` : ""}
+                          </div>
+                          ${adm ? `
+                            <button class="btn-action-del-card" data-dt="${t.id}" title="Delete Task">
+                              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                          ` : ""}
+                        </div>
+                      </div>
+                    `;
+                  }).join("") : `
+                    <div class="kanban-column-empty">
+                      <span>No tasks in ${col.title.toLowerCase()}</span>
+                    </div>
+                  `}
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      ` : `
+        <!-- ================= TABLE VIEW ================= -->
+        <div style="overflow-x: auto; margin-top: 14px;">
+          <table class="styled-table">
+            <thead>
+              <tr>
+                <th>Task</th>
+                <th>Category</th>
+                ${adm ? "<th>Assignee</th>" : ""}
+                <th>Deadline</th>
+                <th>Status</th>
+                <th>State</th>
+                ${adm ? "<th>Action</th>" : ""}
+              </tr>
+            </thead>
+            <tbody>
+              ${ts.length ? ts.map((t) => {
+                const [lbl, cls] = tstate(t);
+                const currentClass = getStatusClass(t.status);
+                return `
+                  <tr>
+                    <td style="font-weight: 600;">${esc(t.title)}</td>
+                    <td><span class="growth-badge subtle">${esc(t.type || "General")}</span></td>
+                    ${adm ? `<td>${esc(user(t.assignee)?.name || "Unassigned")}</td>` : ""}
+                    <td>${t.deadline}</td>
+                    <td>
+                      <div class="status-dropdown" data-task-id="${t.id}">
+                        <button type="button" class="status-dropdown-trigger status-trigger-${currentClass}">
+                          <span class="status-dot"></span>
+                          <span class="status-label-text">${esc(t.status)}</span>
+                          <svg class="status-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div class="status-dropdown-menu">
+                          ${["To do", "In progress", "Done"].map((opt) => {
+                            const optClass = getStatusClass(opt);
+                            const isSelected = opt === t.status;
+                            return `
+                              <button type="button" class="status-option-btn ${isSelected ? "selected" : ""}" data-status-val="${opt}">
+                                <span class="status-dot status-trigger-${optClass}"></span>
+                                <span>${opt}</span>
+                                ${isSelected ? `<svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
+                              </button>
+                            `;
+                          }).join("")}
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="tag-status ${cls}">${lbl}</span></td>
+                    ${adm ? `<td><button class="btn-action-del" data-dt="${t.id}">Delete</button></td>` : ""}
+                  </tr>
+                `;
+              }).join("") : '<tr><td colspan="7" style="text-align: center; color: var(--text-light);">No tasks found.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      `}
     </div>
   `;
 }
