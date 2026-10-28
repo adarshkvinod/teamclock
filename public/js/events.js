@@ -1,5 +1,5 @@
 import { S, clearTokenStorage, TASK_TYPES, TYPES, EMPLOYEE_ROLES, ROLES } from "./state.js";
-import { $, uid, user, active, weekStart, day, tname, hrs, worked, esc, withLoading } from "./utils.js";
+import { $, uid, user, active, weekStart, day, tname, hrs, worked, esc, tstate, withLoading } from "./utils.js";
 import { db, authenticate } from "./api.js";
 import { toast } from "./toast.js";
 import { drawDashboardCharts } from "./charts.js";
@@ -126,6 +126,190 @@ function renderThemedCalendar() {
       wrap?.classList.remove("open");
     };
   }
+}
+
+// Helper: Render quick-action buttons based on status
+function renderQuickActionButtons(taskId, status) {
+  return `
+    ${status !== "To do" ? `
+      <button type="button" class="btn-kanban-shift" data-move-task="${taskId}" data-move-to="To do" title="Move to To do">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        <span>To do</span>
+      </button>
+    ` : ""}
+    ${status !== "In progress" ? `
+      <button type="button" class="btn-kanban-shift" data-move-task="${taskId}" data-move-to="In progress" title="Move to In progress">
+        <span>In progress</span>
+      </button>
+    ` : ""}
+    ${status !== "Done" ? `
+      <button type="button" class="btn-kanban-shift" data-move-task="${taskId}" data-move-to="Done" title="Move to Done">
+        <span>Done</span>
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    ` : ""}
+  `;
+}
+
+// Helper: Refresh column counters
+function updateKanbanCounts() {
+  document.querySelectorAll(".kanban-column").forEach((col) => {
+    const colKey = col.dataset.colStatus;
+    const body = col.querySelector(".kanban-column-body");
+    const countBadge = col.querySelector(".kanban-count-badge");
+    if (body && countBadge) {
+      const cardsCount = body.querySelectorAll(".kanban-card").length;
+      countBadge.textContent = cardsCount;
+    }
+  });
+}
+
+// ================= OPTIMISTIC TASK STATUS MOVER =================
+async function moveTaskOptimistically(taskId, newStatus, cardElement) {
+  const task = S.tasks?.find((t) => t.id === taskId);
+  if (!task || task.status === newStatus) return;
+
+  const oldStatus = task.status;
+  const card = cardElement || document.querySelector(`.kanban-card[data-task-id="${taskId}"]`);
+  const sourceCol = card?.closest(".kanban-column-body");
+  const targetCol = document.querySelector(`.kanban-column-body[data-status-col="${newStatus}"]`);
+
+  // 1. Instantly update in-memory state
+  task.status = newStatus;
+
+  // 2. Instantly move DOM node without any delay or flashback
+  if (card && targetCol) {
+    targetCol.appendChild(card);
+    targetCol.querySelector(".kanban-column-empty")?.remove();
+
+    if (sourceCol && !sourceCol.querySelector(".kanban-card")) {
+      const colName = sourceCol.dataset.statusCol || "column";
+      sourceCol.innerHTML = `<div class="kanban-column-empty"><span>No tasks in ${colName.toLowerCase()}</span></div>`;
+    }
+
+    updateKanbanCounts();
+
+    // Instantly update badge and state
+    const [lbl, cls] = tstate(task);
+    const tag = card.querySelector(".tag-status");
+    if (tag) {
+      tag.className = `tag-status ${cls}`;
+      tag.textContent = lbl;
+    }
+
+    const actionsWrap = card.querySelector(".kanban-quick-actions");
+    if (actionsWrap) {
+      actionsWrap.innerHTML = renderQuickActionButtons(task.id, newStatus);
+    }
+  }
+
+  // 3. Asynchronously sync to database in background
+  try {
+    await db.doc("tasks/" + taskId).update({ status: newStatus });
+    toast.success(`Moved to "${newStatus}".`, "Status Updated");
+  } catch (err) {
+    // Revert state if backend call fails
+    task.status = oldStatus;
+    toast.error(err.message || "Failed to update task status");
+    window.dispatchEvent(new CustomEvent("app:render"));
+  }
+}
+
+// ================= SOLID POINTER DRAG CONTROLLER =================
+function bindSolidKanbanDrag() {
+  document.querySelectorAll(".kanban-card").forEach((card) => {
+    card.onpointerdown = (e) => {
+      // Don't drag if clicking buttons or actions inside the card
+      if (e.target.closest("button") || e.target.closest("input") || e.target.closest(".tag-status")) {
+        return;
+      }
+
+      // Left-click / touch only
+      if (e.button !== 0 && e.pointerType === "mouse") return;
+
+      const taskId = card.dataset.taskId;
+      if (!taskId) return;
+
+      const rect = card.getBoundingClientRect();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const offsetX = startX - rect.left;
+      const offsetY = startY - rect.top;
+
+      let isDragging = false;
+      let floatingCard = null;
+
+      const onPointerMove = (moveEvt) => {
+        const dist = Math.hypot(moveEvt.clientX - startX, moveEvt.clientY - startY);
+
+        if (!isDragging) {
+          if (dist > 5) {
+            isDragging = true;
+
+            // Create solid 100% opaque floating element (NO GHOST)
+            floatingCard = card.cloneNode(true);
+            floatingCard.classList.add("kanban-card-floating");
+            floatingCard.style.width = `${rect.width}px`;
+            floatingCard.style.left = `${moveEvt.clientX - offsetX}px`;
+            floatingCard.style.top = `${moveEvt.clientY - offsetY}px`;
+            document.body.appendChild(floatingCard);
+
+            // Mark slot on the board
+            card.classList.add("kanban-card-placeholder");
+            document.body.classList.add("is-kanban-dragging-active");
+          } else {
+            return;
+          }
+        }
+
+        if (floatingCard) {
+          floatingCard.style.left = `${moveEvt.clientX - offsetX}px`;
+          floatingCard.style.top = `${moveEvt.clientY - offsetY}px`;
+        }
+
+        // Highlight column under cursor
+        const elemUnder = document.elementFromPoint(moveEvt.clientX, moveEvt.clientY);
+        const colBody = elemUnder?.closest(".kanban-column-body");
+
+        document.querySelectorAll(".kanban-column-body").forEach((c) => {
+          c.classList.toggle("is-dragover", c === colBody);
+        });
+      };
+
+      const onPointerUp = (upEvt) => {
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerUp);
+        window.removeEventListener("pointercancel", onPointerUp);
+        document.body.classList.remove("is-kanban-dragging-active");
+
+        if (!isDragging) return;
+
+        if (floatingCard) {
+          floatingCard.remove();
+          floatingCard = null;
+        }
+
+        card.classList.remove("kanban-card-placeholder");
+        document.querySelectorAll(".kanban-column-body").forEach((c) => c.classList.remove("is-dragover"));
+
+        // Detect target column directly under pointer
+        const elemUnder = document.elementFromPoint(upEvt.clientX, upEvt.clientY);
+        const targetCol = elemUnder?.closest(".kanban-column-body");
+
+        if (targetCol) {
+          const targetStatus = targetCol.dataset.statusCol;
+          const currentTask = S.tasks?.find((t) => t.id === taskId);
+          if (targetStatus && currentTask && currentTask.status !== targetStatus) {
+            moveTaskOptimistically(taskId, targetStatus, card);
+          }
+        }
+      };
+
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+      window.addEventListener("pointercancel", onPointerUp);
+    };
+  });
 }
 
 export function bindEvents(me) {
@@ -370,70 +554,8 @@ export function bindEvents(me) {
     };
   });
 
-  // ================= KANBAN DRAG & DROP CONTROLLER =================
-  document.querySelectorAll(".kanban-card").forEach((card) => {
-    card.addEventListener("dragstart", (e) => {
-      e.dataTransfer.setData("text/plain", card.dataset.taskId);
-      e.dataTransfer.effectAllowed = "move";
-      card.classList.add("is-dragging");
-    });
-
-    card.addEventListener("dragend", () => {
-      card.classList.remove("is-dragging");
-      document.querySelectorAll(".kanban-column-body").forEach((col) => {
-        col.classList.remove("is-dragover");
-      });
-    });
-  });
-
-  document.querySelectorAll(".kanban-column-body").forEach((col) => {
-    col.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      col.classList.add("is-dragover");
-    });
-
-    col.addEventListener("dragleave", (e) => {
-      if (!col.contains(e.relatedTarget)) {
-        col.classList.remove("is-dragover");
-      }
-    });
-
-    col.addEventListener("drop", async (e) => {
-      e.preventDefault();
-      col.classList.remove("is-dragover");
-      const taskId = e.dataTransfer.getData("text/plain");
-      const targetStatus = col.dataset.statusCol;
-      if (!taskId || !targetStatus) return;
-
-      const currentTask = S.tasks?.find((t) => t.id === taskId);
-      if (!currentTask || currentTask.status === targetStatus) return;
-
-      try {
-        await db.doc("tasks/" + taskId).update({ status: targetStatus });
-        toast.success(`Moved to "${targetStatus}".`, "Status Updated");
-      } catch (err) {
-        toast.error(err.message || "Failed to move task");
-      }
-    });
-  });
-
-  // Kanban Quick Move Buttons (For Mobile & One-Click Navigation)
-  document.querySelectorAll("[data-move-task]").forEach((btn) => {
-    btn.onclick = async (e) => {
-      e.stopPropagation();
-      const taskId = btn.dataset.moveTask;
-      const targetStatus = btn.dataset.moveTo;
-      if (!taskId || !targetStatus) return;
-
-      try {
-        await db.doc("tasks/" + taskId).update({ status: targetStatus });
-        toast.success(`Task moved to "${targetStatus}".`, "Status Updated");
-      } catch (err) {
-        toast.error(err.message || "Failed to update status");
-      }
-    };
-  });
+  // Bind the solid pointer drag controller (NO GHOSTS)
+  bindSolidKanbanDrag();
 
   // Kanban Card Delete (Admin)
   document.querySelectorAll(".btn-action-del-card").forEach((btn) => {
@@ -493,20 +615,14 @@ export function bindEvents(me) {
         e.stopPropagation();
         const newStatus = optBtn.dataset.statusVal;
         dropdown.classList.remove("open");
-
-        try {
-          await db.doc("tasks/" + taskId).update({ status: newStatus });
-          toast.success(`Task status updated to "${newStatus}".`, "Status Updated");
-        } catch (err) {
-          toast.error(err.message || "Failed to update status");
-        }
+        await moveTaskOptimistically(taskId, newStatus);
       };
     });
   });
 
   // Delete Task in Table
   document.querySelectorAll("[data-dt]").forEach((b) => {
-    if (b.classList.contains("btn-action-del-card")) return; // Handled separately
+    if (b.classList.contains("btn-action-del-card")) return;
     b.onclick = async () => {
       const ok = await toast.confirm({
         title: "Delete Task",
@@ -697,6 +813,18 @@ export function bindEvents(me) {
     });
   }
 }
+
+// Global Event Delegation for Quick Action Shift Buttons
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-move-task]");
+  if (!btn) return;
+
+  const taskId = btn.dataset.moveTask;
+  const targetStatus = btn.dataset.moveTo;
+  if (!taskId || !targetStatus) return;
+
+  moveTaskOptimistically(taskId, targetStatus);
+});
 
 // Global Event Delegation for Edit Employee Modal
 document.addEventListener("click", (e) => {

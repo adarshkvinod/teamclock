@@ -607,7 +607,7 @@
   color: var(--primary-pine);
 }
 
-/* Drop Zone Area */
+/* Column Drop Zone */
 .kanban-column-body {
   display: flex;
   flex-direction: column;
@@ -616,27 +616,30 @@
   min-height: 380px;
   padding: 4px;
   border-radius: var(--radius-md);
-  transition: all 0.2s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .kanban-column-body.is-dragover {
-  background: #ecfdf5;
-  border: 2px dashed #10b981;
+  background: #ecfdf5 !important;
+  border: 2px dashed #10b981 !important;
 }
 
-/* Kanban Cards */
+/* ================= KANBAN CARDS & SOLID COMPONENT DRAG ================= */
 .kanban-card {
   background: #ffffff;
   border: 1px solid #edf0f5;
   border-radius: var(--radius-md);
   padding: 14px;
   box-shadow: 0 1px 3px rgba(7, 59, 40, 0.04);
-  cursor: grab;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   user-select: none;
+  touch-action: none; /* Smooth touch drag on mobile */
+
+  /* High-Contrast Pine Green grab cursor with white border */
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M18 11V6a2 2 0 0 0-4 0v4M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15' fill='%23073b28' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 10 10, move;
 }
 
 .kanban-card:hover {
@@ -645,10 +648,35 @@
   border-color: #d1fae5;
 }
 
-.kanban-card.is-dragging {
-  opacity: 0.45;
-  transform: scale(0.98);
-  cursor: grabbing;
+/* Card Slot Left Behind (Slot indicator) */
+.kanban-card.kanban-card-placeholder {
+  opacity: 0.35 !important;
+  border: 2px dashed #10b981 !important;
+  background: #f0fdf4 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* The Dragged Component (100% Solid, Rich Elevation, Slight Tilt) */
+.kanban-card-floating {
+  position: fixed !important;
+  z-index: 100000 !important;
+  pointer-events: none !important;
+  margin: 0 !important;
+  opacity: 1 !important;
+  transform: rotate(2deg) scale(1.02);
+  box-shadow: 0 24px 48px -6px rgba(7, 59, 40, 0.28), 0 8px 20px rgba(0, 0, 0, 0.08) !important;
+  border: 1.5px solid #10b981 !important;
+  background: #ffffff !important;
+  transition: transform 0.05s ease;
+  user-select: none;
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M10 9V7a2 2 0 0 1 4 0v2m-4 0a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2m-4 0h4' fill='%23073b28' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M8 11v6a4 4 0 0 0 4 4h1a4 4 0 0 0 4-4v-5' fill='%23073b28' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 10 10, move !important;
+}
+
+body.is-kanban-dragging-active,
+body.is-kanban-dragging-active * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M10 9V7a2 2 0 0 1 4 0v2m-4 0a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2m-4 0h4' fill='%23073b28' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M8 11v6a4 4 0 0 0 4 4h1a4 4 0 0 0 4-4v-5' fill='%23073b28' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 10 10, move !important;
+  user-select: none !important;
 }
 
 .kanban-card-top {
@@ -702,7 +730,8 @@
   color: #475569;
   font-size: 11px;
   font-weight: 600;
-  cursor: pointer;
+  cursor: pointer !important;
+  touch-action: auto;
   transition: all 0.15s ease;
 }
 
@@ -716,12 +745,13 @@
   background: transparent;
   border: none;
   color: #94a3b8;
-  cursor: pointer;
+  cursor: pointer !important;
   padding: 4px;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  touch-action: auto;
   transition: all 0.15s ease;
 }
 

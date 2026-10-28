@@ -379,7 +379,7 @@ export function tasksView(adm, me) {
   const emps = S.users.filter((u) => u.role !== "admin");
   const allTasks = S.tasks || [];
   
-  // RBAC: Admin sees all tasks; Employee sees strictly their own assigned tasks
+  // Scoped to current employee (or all for admin)
   const ts = (adm ? allTasks : allTasks.filter((t) => t.assignee === me?.id)).sort(
     (a, b) => a.deadline.localeCompare(b.deadline)
   );
@@ -391,7 +391,6 @@ export function tasksView(adm, me) {
     ? `${emps[0].name} (${emps[0].workType || "Employee"})`
     : "Select Assignee...";
 
-  // Default to kanban board mode
   if (!S.taskViewMode) S.taskViewMode = "kanban";
   const isKanban = S.taskViewMode === "kanban";
 
@@ -430,8 +429,7 @@ export function tasksView(adm, me) {
               <div class="custom-select-menu">
                 ${categories.map((t, idx) => `
                   <button type="button" class="custom-select-opt ${idx === 0 ? "selected" : ""}" data-val="${esc(t)}">
-                    <span>${esc(t)}</span>
-                    ${idx === 0 ? `<svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
+                    <span>${esc(t)}</span>${idx === 0 ? `<svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
                   </button>
                 `).join("")}
               </div>
@@ -452,8 +450,7 @@ export function tasksView(adm, me) {
                   const label = `${u.name} (${u.workType || "Employee"})`;
                   return `
                     <button type="button" class="custom-select-opt ${isSel ? "selected" : ""}" data-val="${esc(u.id)}">
-                      <span>${esc(label)}</span>
-                      ${isSel ? `<svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
+                      <span>${esc(label)}</span>${isSel ? `<svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
                     </button>
                   `;
                 }).join("") : `<div class="custom-select-empty">No employees found.</div>`}
@@ -480,7 +477,6 @@ export function tasksView(adm, me) {
         </div>
       ` : ""}
 
-      <!-- Header with Kanban vs Table Switcher -->
       <div class="tasks-header-bar">
         <div>
           <h3>${adm ? "Team Tasks & Deadlines" : "My Assigned Tasks"} (${ts.length})</h3>
@@ -519,7 +515,7 @@ export function tasksView(adm, me) {
                   ${colTasks.length ? colTasks.map((t) => {
                     const [lbl, cls] = tstate(t);
                     return `
-                      <div class="kanban-card" draggable="true" data-task-id="${t.id}">
+                      <div class="kanban-card" data-task-id="${t.id}">
                         <div class="kanban-card-top">
                           <span class="growth-badge subtle">${esc(t.type || "General")}</span>
                           <span class="tag-status ${cls}">${lbl}</span>
@@ -540,7 +536,6 @@ export function tasksView(adm, me) {
                           ` : ""}
                         </div>
 
-                        <!-- Quick Move Controls for Touch / One-Click -->
                         <div class="kanban-card-footer">
                           <div class="kanban-quick-actions">
                             ${col.key !== "To do" ? `
@@ -626,8 +621,7 @@ export function tasksView(adm, me) {
                         </div>
                       </div>
                     </td>
-                    <td><span class="tag-status ${cls}">${lbl}</span></td>
-                    ${adm ? `<td><button class="btn-action-del" data-dt="${t.id}">Delete</button></td>` : ""}
+                    <td><span class="tag-status ${cls}">${lbl}</span></td>${adm ? `<td><button class="btn-action-del" data-dt="${t.id}">Delete</button></td>` : ""}
                   </tr>
                 `;
               }).join("") : '<tr><td colspan="7" style="text-align: center; color: var(--text-light);">No tasks found.</td></tr>'}
@@ -769,8 +763,7 @@ export function trackView(me) {
               <div class="custom-select-menu">
                 ${categories.map((t, idx) => `
                   <button type="button" class="custom-select-opt ${idx === 0 ? "selected" : ""}" data-val="${esc(t)}">
-                    <span>${esc(t)}</span>
-                    ${idx === 0 ? `<svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
+                    <span>${esc(t)}</span>${idx === 0 ? `<svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
                   </button>
                 `).join("")}
               </div>
