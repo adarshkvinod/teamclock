@@ -27,6 +27,7 @@
 .input-group input,
 .input-group select,
 .custom-select-trigger,
+.custom-datepicker-trigger,
 .prompt-input,
 .auth-card input {
   width: 100%;
@@ -56,6 +57,7 @@
 .input-group input:hover,
 .input-group select:hover,
 .custom-select-trigger:hover,
+.custom-datepicker-trigger:hover,
 .prompt-input:hover,
 .auth-card input:hover {
   border-color: #10b981;
@@ -66,6 +68,8 @@
 .input-group select:focus,
 .custom-select-wrap.open .custom-select-trigger,
 .custom-select-trigger:focus-visible,
+.custom-datepicker-wrap.open .custom-datepicker-trigger,
+.custom-datepicker-trigger:focus-visible,
 .prompt-input:focus,
 .auth-card input:focus {
   border-color: #10b981;
@@ -130,7 +134,6 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   transform: rotate(180deg);
 }
 
-/* Shared Floating Overlay Theme */
 .custom-select-menu {
   display: none;
   position: absolute;
@@ -183,7 +186,6 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   background: #10b981;
 }
 
-/* Unified Option Row */
 .custom-select-opt {
   width: 100%;
   box-sizing: border-box;
@@ -248,6 +250,208 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   font-size: 0.85rem;
   color: #94a3b8;
   text-align: center;
+}
+
+/* ================= THEMED DATEPICKER COMPONENT ================= */
+.custom-datepicker-wrap {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+.custom-datepicker-wrap.open {
+  z-index: 1000 !important;
+}
+
+.custom-datepicker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+
+.custom-datepicker-label {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-datepicker-icon {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #0a4d35;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+/* Floating Calendar Overlay (Aligned right to fit grid columns cleanly) */
+.custom-datepicker-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 290px;
+  max-width: calc(100vw - 48px);
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1.5px solid #d1fae5;
+  border-radius: var(--radius-md);
+  box-shadow: 0 14px 32px -4px rgba(7, 59, 40, 0.16), 0 4px 12px rgba(0, 0, 0, 0.04);
+  z-index: 1000;
+  padding: 16px;
+  user-select: none;
+}
+
+.custom-datepicker-wrap.open .custom-datepicker-menu {
+  display: block !important;
+  animation: selectMenuIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Calendar Header */
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.cal-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--primary-pine);
+  letter-spacing: -0.2px;
+}
+
+.cal-nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid #d1fae5;
+  background: #ffffff;
+  color: var(--primary-pine);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cal-nav-btn:hover {
+  background: #f0fdf4;
+  border-color: #10b981;
+}
+
+.cal-nav-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  fill: none;
+}
+
+/* Weekday Labels */
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+/* Day Numbers Grid */
+.cal-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.cal-day {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #1e293b;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.cal-day:hover:not(.other-month):not(.selected) {
+  background: #f0fdf4;
+  color: #073b28;
+}
+
+.cal-day.other-month {
+  color: #cbd5e1;
+  cursor: default;
+}
+
+.cal-day.today {
+  border: 1.5px solid #10b981;
+  font-weight: 700;
+  color: #073b28;
+}
+
+.cal-day.selected {
+  background: var(--primary-pine) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(7, 59, 40, 0.25);
+}
+
+/* Calendar Actions Footer */
+.cal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.cal-btn-clear,
+.cal-btn-today {
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.cal-btn-clear {
+  color: #94a3b8;
+}
+
+.cal-btn-clear:hover {
+  color: var(--accent-red);
+  background: #fee2e2;
+}
+
+.cal-btn-today {
+  color: var(--primary-pine);
+  background: #ecfdf5;
+}
+
+.cal-btn-today:hover {
+  background: #d1fae5;
 }
 
 /* ================= ROLE CHECKBOX PILLS & TOGGLES ================= */

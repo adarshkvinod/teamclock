@@ -4,6 +4,139 @@ import { db, authenticate } from "./api.js";
 import { toast } from "./toast.js";
 import { drawDashboardCharts } from "./charts.js";
 
+// Calendar State
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
+function renderThemedCalendar() {
+  const menu = $("#deadlinePickerMenu");
+  const hiddenInput = $("#nd");
+  const lbl = $("#ndLabel");
+  const wrap = $("#deadlinePickerWrap");
+  if (!menu || !hiddenInput) return;
+
+  const selectedVal = hiddenInput.value;
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const daysInPrevMonth = new Date(calYear, calMonth, 0).getDate();
+
+  let daysHtml = "";
+
+  // Pad previous month days
+  for (let i = firstDay - 1; i >= 0; i--) {
+    daysHtml += `<div class="cal-day other-month">${daysInPrevMonth - i}</div>`;
+  }
+
+  // Current month days
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const isSel = dStr === selectedVal ? "selected" : "";
+    const isToday = dStr === todayStr ? "today" : "";
+    daysHtml += `<button type="button" class="cal-day ${isSel} ${isToday}" data-cal-date="${dStr}">${d}</button>`;
+  }
+
+  // Pad trailing days to balance grid (up to 35 or 42 cells)
+  const totalCells = firstDay + daysInMonth;
+  const nextMonthDays = (7 - (totalCells % 7)) % 7;
+  for (let d = 1; d <= nextMonthDays; d++) {
+    daysHtml += `<div class="cal-day other-month">${d}</div>`;
+  }
+
+  menu.innerHTML = `
+    <div class="cal-header">
+      <button type="button" class="cal-nav-btn" id="calPrev">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="cal-title">${MONTHS[calMonth]} ${calYear}</span>
+      <button type="button" class="cal-nav-btn" id="calNext">
+        <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+    <div class="cal-weekdays">
+      <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+    </div>
+    <div class="cal-days">${daysHtml}</div>
+    <div class="cal-footer">
+      <button type="button" class="cal-btn-clear" id="calClear">Clear</button>
+      <button type="button" class="cal-btn-today" id="calToday">Today</button>
+    </div>
+  `;
+
+  // Prevent clicks inside the calendar from triggering outside-dismissal
+  menu.onclick = (e) => e.stopPropagation();
+
+  // Month navigation: previous
+  const prevBtn = menu.querySelector("#calPrev");
+  if (prevBtn) {
+    prevBtn.onclick = (e) => {
+      e.stopPropagation();
+      calMonth--;
+      if (calMonth < 0) {
+        calMonth = 11;
+        calYear--;
+      }
+      renderThemedCalendar();
+    };
+  }
+
+  // Month navigation: next
+  const nextBtn = menu.querySelector("#calNext");
+  if (nextBtn) {
+    nextBtn.onclick = (e) => {
+      e.stopPropagation();
+      calMonth++;
+      if (calMonth > 11) {
+        calMonth = 0;
+        calYear++;
+      }
+      renderThemedCalendar();
+    };
+  }
+
+  // Day selection
+  menu.querySelectorAll(".cal-day[data-cal-date]").forEach((btn) => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const chosen = btn.dataset.calDate;
+      hiddenInput.value = chosen;
+      if (lbl) lbl.textContent = chosen;
+      wrap?.classList.remove("open");
+    };
+  });
+
+  // Today button
+  const todayBtn = menu.querySelector("#calToday");
+  if (todayBtn) {
+    todayBtn.onclick = (e) => {
+      e.stopPropagation();
+      calYear = today.getFullYear();
+      calMonth = today.getMonth();
+      hiddenInput.value = todayStr;
+      if (lbl) lbl.textContent = todayStr;
+      wrap?.classList.remove("open");
+    };
+  }
+
+  // Clear button
+  const clearBtn = menu.querySelector("#calClear");
+  if (clearBtn) {
+    clearBtn.onclick = (e) => {
+      e.stopPropagation();
+      hiddenInput.value = "";
+      if (lbl) lbl.textContent = "Select deadline...";
+      wrap?.classList.remove("open");
+    };
+  }
+}
+
 export function bindEvents(me) {
   const on = (id, fn) => {
     const el = $(id);
@@ -91,7 +224,7 @@ export function bindEvents(me) {
     };
   }
 
-  // Time tracker: Clock In (No project required)
+  // Time tracker: Clock In
   on("#ci", async () => {
     const isCustom = taskCustomWrap && taskCustomWrap.style.display !== "none";
     let chosenTask = "";
@@ -166,29 +299,58 @@ export function bindEvents(me) {
     });
   });
 
-// Task creation with specific validation
+  // Themed Deadline Datepicker Direct Trigger
+  const dateWrap = $("#deadlinePickerWrap");
+  const dateBtn = $("#deadlinePickerBtn");
+  const hiddenNd = $("#nd");
+
+  if (dateBtn && dateWrap) {
+    dateBtn.onclick = (e) => {
+      e.stopPropagation();
+      const isOpen = dateWrap.classList.contains("open");
+
+      // Close other dropdowns
+      document.querySelectorAll(".custom-select-wrap.open").forEach((w) => w.classList.remove("open"));
+      document.querySelectorAll(".status-dropdown.open").forEach((d) => d.classList.remove("open"));
+
+      if (isOpen) {
+        dateWrap.classList.remove("open");
+      } else {
+        if (hiddenNd && hiddenNd.value) {
+          const parts = hiddenNd.value.split("-");
+          if (parts.length === 3) {
+            const y = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10) - 1;
+            if (!isNaN(y) && !isNaN(m)) {
+              calYear = y;
+              calMonth = m;
+            }
+          }
+        }
+        renderThemedCalendar();
+        dateWrap.classList.add("open");
+      }
+    };
+  }
+
+  // Task creation with field validation
   on("#ac", async () => {
     const t = $("#nt") ? $("#nt").value.trim() : "";
     const a = $("#na") ? $("#na").value : "";
     const d = $("#nd") ? $("#nd").value : "";
     const type = $("#ntype") ? $("#ntype").value : (TASK_TYPES || TYPES)[0];
 
-    // Check each field individually
     if (!t) {
       toast.warning("Please enter a task title.", "Title Required");
       $("#nt")?.focus();
       return;
     }
-
     if (!a) {
-      toast.warning("Please select an assignee. If no employees exist, register one first in Team Members.", "Assignee Required");
-      $("#na")?.focus();
+      toast.warning("Please select an assignee.", "Assignee Required");
       return;
     }
-
     if (!d) {
       toast.warning("Please choose a deadline date.", "Deadline Required");
-      $("#nd")?.focus();
       return;
     }
 
@@ -224,6 +386,7 @@ export function bindEvents(me) {
 
       document.querySelectorAll(".status-dropdown.open").forEach((d) => d.classList.remove("open"));
       document.querySelectorAll(".custom-select-wrap.open").forEach((d) => d.classList.remove("open"));
+      document.querySelectorAll(".custom-datepicker-wrap.open").forEach((d) => d.classList.remove("open"));
 
       if (!isOpen) {
         const rect = trigger.getBoundingClientRect();
@@ -409,7 +572,7 @@ export function bindEvents(me) {
     toast.success("Timesheet report downloaded successfully.", "Export Ready");
   });
 
-  // Chart Filter Dropdown Interaction
+  // Chart Filter Dropdown
   const filterDropdown = $("#chartFilterDropdown");
   const filterBtn = $("#chartFilterBtn");
   const filterLabel = $("#chartFilterLabel");
@@ -572,7 +735,7 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// ================= GLOBAL CUSTOM SELECT DROPDOWN DELEGATION =================
+// ================= GLOBAL CUSTOM SELECT DELEGATION =================
 document.addEventListener("click", (e) => {
   const trigger = e.target.closest(".custom-select-trigger");
   const opt = e.target.closest(".custom-select-opt");
@@ -611,7 +774,7 @@ document.addEventListener("click", (e) => {
 
     wrap.classList.remove("open");
 
-    // Seamless toggle if user clicks "Custom task (type manually)..."
+    // Toggle custom task field if selected
     if (hiddenInput && hiddenInput.id === "wk" && val === "__custom__") {
       const taskSelectWrap = document.getElementById("taskSelectWrap");
       const taskCustomWrap = document.getElementById("taskCustomWrap");
@@ -638,6 +801,7 @@ document.addEventListener("click", (e) => {
       if (s !== wrap) s.classList.remove("open");
     });
     document.querySelectorAll(".status-dropdown.open").forEach((d) => d.classList.remove("open"));
+    document.querySelectorAll(".custom-datepicker-wrap.open").forEach((d) => d.classList.remove("open"));
 
     wrap.classList.toggle("open", !isOpen);
     return;
@@ -646,21 +810,25 @@ document.addEventListener("click", (e) => {
   // 3. Outside clicks close all open dropdowns
   allSelects.forEach((s) => s.classList.remove("open"));
   document.querySelectorAll(".status-dropdown.open").forEach((d) => d.classList.remove("open"));
+  document.querySelectorAll(".custom-datepicker-wrap.open").forEach((d) => d.classList.remove("open"));
 });
 
-// Scroll & Resize listeners (prevents closing when scrolling inside dropdown list)
+// Scroll & Resize listeners
 window.addEventListener(
   "scroll",
   (e) => {
     if (
       e.target &&
       e.target.classList &&
-      (e.target.classList.contains("custom-select-menu") || e.target.classList.contains("status-dropdown-menu"))
+      (e.target.classList.contains("custom-select-menu") ||
+        e.target.classList.contains("status-dropdown-menu") ||
+        e.target.classList.contains("custom-datepicker-menu"))
     ) {
       return;
     }
     document.querySelectorAll(".status-dropdown.open").forEach((d) => d.classList.remove("open"));
     document.querySelectorAll(".custom-select-wrap.open").forEach((d) => d.classList.remove("open"));
+    document.querySelectorAll(".custom-datepicker-wrap.open").forEach((d) => d.classList.remove("open"));
   },
   true
 );
@@ -668,6 +836,7 @@ window.addEventListener(
 window.addEventListener("resize", () => {
   document.querySelectorAll(".status-dropdown.open").forEach((d) => d.classList.remove("open"));
   document.querySelectorAll(".custom-select-wrap.open").forEach((d) => d.classList.remove("open"));
+  document.querySelectorAll(".custom-datepicker-wrap.open").forEach((d) => d.classList.remove("open"));
 });
 
 export function bindAuthEvents(isSetup) {

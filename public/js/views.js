@@ -345,9 +345,17 @@ export function tasksView(adm) {
             </div>
           </div>
 
+          <!-- Themed Deadline Date Picker -->
           <div class="input-group">
             <label>Deadline</label>
-            <input id="nd" type="date" value="${day(Date.now())}">
+            <div class="custom-datepicker-wrap" id="deadlinePickerWrap">
+              <input type="hidden" id="nd" value="${day(Date.now())}">
+              <button type="button" class="custom-datepicker-trigger" id="deadlinePickerBtn">
+                <span class="custom-datepicker-label" id="ndLabel">${day(Date.now())}</span>
+                <svg class="custom-datepicker-icon" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+              </button>
+              <div class="custom-datepicker-menu" id="deadlinePickerMenu"></div>
+            </div>
           </div>
         </div>
 
