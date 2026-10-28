@@ -166,15 +166,29 @@ export function bindEvents(me) {
     });
   });
 
-  // Task creation
+// Task creation with specific validation
   on("#ac", async () => {
     const t = $("#nt") ? $("#nt").value.trim() : "";
     const a = $("#na") ? $("#na").value : "";
     const d = $("#nd") ? $("#nd").value : "";
     const type = $("#ntype") ? $("#ntype").value : (TASK_TYPES || TYPES)[0];
 
-    if (!t || !a || !d) {
-      toast.warning("Please fill in task title, assignee, and deadline.");
+    // Check each field individually
+    if (!t) {
+      toast.warning("Please enter a task title.", "Title Required");
+      $("#nt")?.focus();
+      return;
+    }
+
+    if (!a) {
+      toast.warning("Please select an assignee. If no employees exist, register one first in Team Members.", "Assignee Required");
+      $("#na")?.focus();
+      return;
+    }
+
+    if (!d) {
+      toast.warning("Please choose a deadline date.", "Deadline Required");
+      $("#nd")?.focus();
       return;
     }
 

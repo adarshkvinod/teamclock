@@ -2,21 +2,21 @@ import { S, EMPLOYEE_ROLES, TASK_TYPES, TYPES } from "./state.js";
 import { esc, user, tname, active, dur, hrs, worked, day, weekStart, tstate, getFormattedDate } from "./utils.js";
 
 export function getPageTitle(tab) {
-    switch (tab) {
-        case "dashboard": return "Productivity Report";
-        case "tasks": return "Tasks & Deadlines";
-        case "track": return "Time Tracker";
-        case "sheet": return "Weekly Timesheets";
-        case "team": return "Team Directory";
-        default: return "Overview";
-    }
+  switch (tab) {
+    case "dashboard": return "Productivity Report";
+    case "tasks": return "Tasks & Deadlines";
+    case "track": return "Time Tracker";
+    case "sheet": return "Weekly Timesheets";
+    case "team": return "Team Directory";
+    default: return "Overview";
+  }
 }
 
 export function layoutView(me, currentContent) {
-    const adm = me.role === "admin";
-    const s = active(me.id);
+  const adm = me.role === "admin";
+  const s = active(me.id);
 
-    return `
+  return `
     <div class="dashboard-layout">
       <aside class="sidebar">
         <div>
@@ -75,7 +75,7 @@ export function layoutView(me, currentContent) {
           ${s
             ? `<button class="btn-sidebar-clock btn-out" id="sideBtnClockOut">Clock Out</button>`
             : `<button class="btn-sidebar-clock" id="sideBtnClockIn">Start Shift</button>`
-        }
+          }
         </div>
       </aside>
 
@@ -85,7 +85,7 @@ export function layoutView(me, currentContent) {
             <h1>${getPageTitle(S.tab)}</h1>
             <p>${getFormattedDate()}</p>
           </div>
-         <div class="topbar-actions">
+          <div class="topbar-actions">
             <div class="user-pill">
               <div class="user-avatar">${esc(me.name.charAt(0))}</div>
               <div class="user-info">
@@ -106,16 +106,16 @@ export function layoutView(me, currentContent) {
 }
 
 export function dashboardView() {
-    const ws = weekStart(),
-        wkS = S.sessions.filter((x) => (x.end || Date.now()) >= ws);
-    const totalHours = wkS.reduce((a, x) => a + worked(x), 0);
-    const clockedInCount = S.sessions.filter((x) => !x.end).length;
-    const doneTasks = S.tasks.filter((t) => t.status === "Done").length;
-    const overdueTasks = S.tasks.filter((t) => tstate(t)[1] === "over").length;
-    const activeWorkers = S.sessions.filter((x) => !x.end);
-    const categories = TASK_TYPES || TYPES;
+  const ws = weekStart(),
+    wkS = S.sessions.filter((x) => (x.end || Date.now()) >= ws);
+  const totalHours = wkS.reduce((a, x) => a + worked(x), 0);
+  const clockedInCount = S.sessions.filter((x) => !x.end).length;
+  const doneTasks = S.tasks.filter((t) => t.status === "Done").length;
+  const overdueTasks = S.tasks.filter((t) => tstate(t)[1] === "over").length;
+  const activeWorkers = S.sessions.filter((x) => !x.end);
+  const categories = TASK_TYPES || TYPES;
 
-    return `
+  return `
     <div class="dashboard-grid">
       <div class="grid-col-main">
         <div class="kpi-matrix">
@@ -231,14 +231,14 @@ export function dashboardView() {
           </div>
           <div class="side-breakdown-list">
             ${categories.map((type) => {
-        const count = Math.round(wkS.filter((x) => x.type === type).reduce((a, b) => a + worked(b), 0) / 36e5);
-        return `
+              const count = Math.round(wkS.filter((x) => x.type === type).reduce((a, b) => a + worked(b), 0) / 36e5);
+              return `
                 <div class="side-breakdown-item">
                   <span>${esc(type)}</span>
                   <span class="badge-stat">${count} hrs</span>
                 </div>
               `;
-    }).join("")}
+            }).join("")}
           </div>
         </div>
 
@@ -247,24 +247,24 @@ export function dashboardView() {
           <p style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">Real-time active shifts</p>
           <div class="worker-pill-list">
             ${activeWorkers.length
-            ? activeWorkers
+              ? activeWorkers
                 .map(
-                    (w) => `
-                <div class="worker-item-row">
-                  <div class="worker-info-meta">
-                    <span class="status-indicator"></span>
-                    <div>
-                      <div class="worker-name">${esc(user(w.uid)?.name || "Unknown")}</div>
-                      <div class="worker-role">${esc(w.type)}</div>
+                  (w) => `
+                    <div class="worker-item-row">
+                      <div class="worker-info-meta">
+                        <span class="status-indicator"></span>
+                        <div>
+                          <div class="worker-name">${esc(user(w.uid)?.name || "Unknown")}</div>
+                          <div class="worker-role">${esc(w.type)}</div>
+                        </div>
+                      </div>
+                      <span class="tag-status track" data-worker-timer="${w.id || w._id}">${dur(worked(w))}</span>
                     </div>
-                  </div>
-                  <span class="tag-status track" data-worker-timer="${w.id || w._id}">${dur(worked(w))}</span>
-                </div>
-              `
+                  `
                 )
                 .join("")
-            : '<p style="color: var(--text-light); font-size: 12px; margin-top: 10px;">Nobody is currently clocked in.</p>'
-        }
+              : '<p style="color: var(--text-light); font-size: 12px; margin-top: 10px;">Nobody is currently clocked in.</p>'
+            }
           </div>
         </div>
       </div>
@@ -273,51 +273,89 @@ export function dashboardView() {
 }
 
 export function tasksView(adm) {
-    const emps = S.users.filter((u) => u.role !== "admin");
-    const ts = [...S.tasks].sort((a, b) => a.deadline.localeCompare(b.deadline));
-    const categories = TASK_TYPES || TYPES;
+  const emps = S.users.filter((u) => u.role !== "admin");
+  const ts = [...S.tasks].sort((a, b) => a.deadline.localeCompare(b.deadline));
+  const categories = TASK_TYPES || TYPES;
 
-    const getStatusClass = (status) => {
-        if (status === "Done") return "done";
-        if (status === "In progress") return "progress";
-        return "todo";
-    };
+  const defaultCategory = categories[0] || "Mobile App Development";
+  const defaultEmpId = emps.length ? emps[0].id : "";
+  const defaultEmpLabel = emps.length
+    ? `${emps[0].name} (${emps[0].workType || "Employee"})`
+    : "Select Assignee...";
 
-    return `
+  const getStatusClass = (status) => {
+    if (status === "Done") return "done";
+    if (status === "In progress") return "progress";
+    return "todo";
+  };
+
+  return `
     <div class="full-width-card">
-      ${adm
-            ? `
+      ${adm ? `
         <h3 style="margin-bottom: 6px;">Assign New Task</h3>
         <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 18px;">Set task title, category, assignee, and deadline</p>
+        
         <div class="form-grid-3">
           <div class="input-group">
             <label>Task Title</label>
             <input id="nt" placeholder="e.g. Implement user authentication flow">
           </div>
+
+          <!-- Themed Task Category Dropdown -->
           <div class="input-group">
             <label>Task Category</label>
-            <select id="ntype">
-              ${categories.map((t) => `<option value="${t}">${t}</option>`).join("")}
-            </select>
+            <div class="custom-select-wrap">
+              <input type="hidden" id="ntype" value="${esc(defaultCategory)}">
+              <button type="button" class="custom-select-trigger">
+                <span class="custom-select-label">${esc(defaultCategory)}</span>
+                <svg class="custom-select-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="custom-select-menu">
+                ${categories.map((t, idx) => `
+                  <button type="button" class="custom-select-opt ${idx === 0 ? "selected" : ""}" data-val="${esc(t)}">
+                    <span>${esc(t)}</span>
+                    ${idx === 0 ? `<svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
+                  </button>
+                `).join("")}
+              </div>
+            </div>
           </div>
+
+          <!-- Themed Assignee Dropdown -->
           <div class="input-group">
             <label>Assignee</label>
-            <select id="na">
-              ${emps.map((u) => `<option value="${u.id}">${esc(u.name)} (${esc(u.workType || "Employee")})</option>`).join("")}
-            </select>
+            <div class="custom-select-wrap">
+              <input type="hidden" id="na" value="${esc(defaultEmpId)}">
+              <button type="button" class="custom-select-trigger">
+                <span class="custom-select-label">${esc(defaultEmpLabel)}</span>
+                <svg class="custom-select-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="custom-select-menu">
+                ${emps.length ? emps.map((u, idx) => {
+                  const isSel = idx === 0;
+                  const label = `${u.name} (${u.workType || "Employee"})`;
+                  return `
+                    <button type="button" class="custom-select-opt ${isSel ? "selected" : ""}" data-val="${esc(u.id)}">
+                      <span>${esc(label)}</span>
+                      ${isSel ? `<svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
+                    </button>
+                  `;
+                }).join("") : `<div class="custom-select-empty">No employees found.</div>`}
+              </div>
+            </div>
           </div>
+
           <div class="input-group">
             <label>Deadline</label>
-            <input id="nd" type="date">
+            <input id="nd" type="date" value="${day(Date.now())}">
           </div>
         </div>
+
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 28px;">
           <button class="btn-primary" id="ac">Create Task</button>
           <span class="err" id="te" style="color: var(--accent-red); font-size: 12px;"></span>
         </div>
-      `
-            : ""
-        }
+      ` : ""}
 
       <h3>All Tasks (${ts.length})</h3>
       <div style="overflow-x: auto;">
@@ -334,51 +372,42 @@ export function tasksView(adm) {
             </tr>
           </thead>
           <tbody>
-            ${ts.length
-            ? ts
-                .map((t) => {
-                    const [lbl, cls] = tstate(t);
-                    const currentClass = getStatusClass(t.status);
-                    return `
-                  <tr>
-                    <td style="font-weight: 600;">${esc(t.title)}</td>
-                    <td><span class="growth-badge subtle">${esc(t.type || "General")}</span></td>
-                    <td>${esc(user(t.assignee)?.name || "Unassigned")}</td>
-                    <td>${t.deadline}</td>
-                    <td>
-                      <div class="status-dropdown" data-task-id="${t.id}">
-                        <button type="button" class="status-dropdown-trigger status-trigger-${currentClass}">
-                          <span class="status-dot"></span>
-                          <span class="status-label-text">${esc(t.status)}</span>
-                          <svg class="status-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-                        </button>
-                        <div class="status-dropdown-menu">
-                          ${["To do", "In progress", "Done"]
-                            .map((opt) => {
-                                const optClass = getStatusClass(opt);
-                                const isSelected = opt === t.status;
-                                return `
-                                <button type="button" class="status-option-btn ${isSelected ? "selected" : ""}" data-status-val="${opt}">
-                                  <span class="status-dot status-trigger-${optClass}"></span>
-                                  <span>${opt}</span>
-                                  ${isSelected
-                                        ? `<svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`
-                                        : ""
-                                    }
-                                </button>
-                              `;
-                            })
-                            .join("")}
-                        </div>
+            ${ts.length ? ts.map((t) => {
+              const [lbl, cls] = tstate(t);
+              const currentClass = getStatusClass(t.status);
+              return `
+                <tr>
+                  <td style="font-weight: 600;">${esc(t.title)}</td>
+                  <td><span class="growth-badge subtle">${esc(t.type || "General")}</span></td>
+                  <td>${esc(user(t.assignee)?.name || "Unassigned")}</td>
+                  <td>${t.deadline}</td>
+                  <td>
+                    <div class="status-dropdown" data-task-id="${t.id}">
+                      <button type="button" class="status-dropdown-trigger status-trigger-${currentClass}">
+                        <span class="status-dot"></span>
+                        <span class="status-label-text">${esc(t.status)}</span>
+                        <svg class="status-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                      </button>
+                      <div class="status-dropdown-menu">
+                        ${["To do", "In progress", "Done"].map((opt) => {
+                          const optClass = getStatusClass(opt);
+                          const isSelected = opt === t.status;
+                          return `
+                            <button type="button" class="status-option-btn ${isSelected ? "selected" : ""}" data-status-val="${opt}">
+                              <span class="status-dot status-trigger-${optClass}"></span>
+                              <span>${opt}</span>
+                              ${isSelected ? `<svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
+                            </button>
+                          `;
+                        }).join("")}
                       </div>
-                    </td>
-                    <td><span class="tag-status ${cls}">${lbl}</span></td>${adm ? `<td><button class="btn-action-del" data-dt="${t.id}">Delete</button></td>` : ""}
-                  </tr>
-                `;
-                })
-                .join("")
-            : '<tr><td colspan="7" style="text-align: center; color: var(--text-light);">No tasks found.</td></tr>'
-        }
+                    </div>
+                  </td>
+                  <td><span class="tag-status ${cls}">${lbl}</span></td>
+                  ${adm ? `<td><button class="btn-action-del" data-dt="${t.id}">Delete</button></td>` : ""}
+                </tr>
+              `;
+            }).join("") : '<tr><td colspan="7" style="text-align: center; color: var(--text-light);">No tasks found.</td></tr>'}
           </tbody>
         </table>
       </div>
@@ -387,10 +416,10 @@ export function tasksView(adm) {
 }
 
 export function teamView() {
-    const emps = S.users.filter((u) => u.role !== "admin");
-    const availableRoles = EMPLOYEE_ROLES;
+  const emps = S.users.filter((u) => u.role !== "admin");
+  const availableRoles = EMPLOYEE_ROLES;
 
-    return `
+  return `
     <div class="full-width-card">
       <h3 style="margin-bottom: 6px;">Create Employee Account</h3>
       <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 18px;">Add team members and assign one or multiple roles</p>
@@ -413,8 +442,7 @@ export function teamView() {
       <div class="input-group" style="margin-bottom: 20px;">
         <label>Assigned Roles (Click to select multiple)</label>
         <div class="role-selector-group">
-          ${availableRoles.map(
-        (role) => `
+          ${availableRoles.map((role) => `
             <label class="role-checkbox-pill">
               <input type="checkbox" name="empRole" value="${esc(role)}">
               <span class="role-pill-content">
@@ -422,8 +450,7 @@ export function teamView() {
                 ${esc(role)}
               </span>
             </label>
-          `
-    ).join("")}
+          `).join("")}
         </div>
       </div>
 
@@ -446,35 +473,33 @@ export function teamView() {
           </thead>
           <tbody>
             ${emps.length
-            ? emps
-                .map((u) => {
-                    const userRoles = u.roles && u.roles.length ? u.roles : (u.workType ? u.workType.split(",").map(r => r.trim()) : []);
-                    return `
-                <tr>
-                  <td style="font-weight: 600;">${esc(u.name)}</td>
-                  <td style="color: var(--text-muted);">${esc(u.username)}</td>
-                  <td>
-                    <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                      ${userRoles.map(r => `<span class="growth-badge subtle">${esc(r)}</span>`).join("")}
-                    </div>
-                  </td>
-                  <td>
-                    ${active(u.id)
-                            ? '<span class="tag-status done">Clocked In</span>'
-                            : '<span class="tag-status" style="background:#f1f5f9; color:#64748b;">Offline</span>'
-                        }
-                  </td>
-                  <td>
-                    <button class="select-filter" data-edit-emp="${u.id}" style="margin-right: 6px;">Edit</button>
-                    <button class="select-filter" data-rp="${u.id}" style="margin-right: 6px;">Reset Password</button>
-                    <button class="btn-action-del" data-du="${u.id}">Remove</button>
-                  </td>
-                </tr>
-              `;
-                })
-                .join("")
-            : '<tr><td colspan="5" style="text-align: center; color: var(--text-light);">No employees registered yet.</td></tr>'
-        }
+              ? emps.map((u) => {
+                const userRoles = u.roles && u.roles.length ? u.roles : (u.workType ? u.workType.split(",").map(r => r.trim()) : []);
+                return `
+                  <tr>
+                    <td style="font-weight: 600;">${esc(u.name)}</td>
+                    <td style="color: var(--text-muted);">${esc(u.username)}</td>
+                    <td>
+                      <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                        ${userRoles.map(r => `<span class="growth-badge subtle">${esc(r)}</span>`).join("")}
+                      </div>
+                    </td>
+                    <td>
+                      ${active(u.id)
+                        ? '<span class="tag-status done">Clocked In</span>'
+                        : '<span class="tag-status" style="background:#f1f5f9; color:#64748b;">Offline</span>'
+                      }
+                    </td>
+                    <td>
+                      <button class="select-filter" data-edit-emp="${u.id}" style="margin-right: 6px;">Edit</button>
+                      <button class="select-filter" data-rp="${u.id}" style="margin-right: 6px;">Reset Password</button>
+                      <button class="btn-action-del" data-du="${u.id}">Remove</button>
+                    </td>
+                  </tr>
+                `;
+              }).join("")
+              : '<tr><td colspan="5" style="text-align: center; color: var(--text-light);">No employees registered yet.</td></tr>'
+            }
           </tbody>
         </table>
       </div>
@@ -483,76 +508,104 @@ export function teamView() {
 }
 
 export function trackView(me) {
-    const s = active(me.id),
-        b = s && (s.breaks || []).find((x) => !x.e);
-    const mine = S.tasks.filter((t) => t.assignee === me.id && t.status !== "Done");
-    const categories = TASK_TYPES || TYPES;
+  const s = active(me.id),
+    b = s && (s.breaks || []).find((x) => !x.e);
+  const mine = S.tasks.filter((t) => t.assignee === me.id && t.status !== "Done");
+  const categories = TASK_TYPES || TYPES;
 
-    return `
+  return `
     <div class="full-width-card" style="max-width: 600px; margin: 0 auto;">
       <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 6px;">Shift Workstation</h2>
       <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px;">Track your time, select working task, and take breaks</p>
 
       ${s
-            ? `
-        <div style="background: var(--bg-app); border-radius: var(--radius-lg); padding: 24px; text-align: center; margin-bottom: 20px;">
-          <div style="color: var(--text-muted); font-size: 13px; font-weight: 600;">Clocked in as ${esc(s.type)}</div>
-          <div style="font-size: 48px; font-weight: 800; color: var(--primary-pine); margin: 8px 0;" id="tm">${dur(worked(s))}</div>
-          <div style="color: var(--text-light); font-size: 12px;">Active Task: ${esc(tname(s.taskId))}</div>
-        </div>
-        <div style="display: flex; gap: 12px;">
-          ${b
-                ? '<button class="btn-primary" id="bk" style="flex:1; background:var(--accent-amber);">Resume Work</button>'
-                : '<button class="select-filter" id="bk" style="flex:1;">Take a Break</button>'
+        ? `
+          <div style="background: var(--bg-app); border-radius: var(--radius-lg); padding: 24px; text-align: center; margin-bottom: 20px;">
+            <div style="color: var(--text-muted); font-size: 13px; font-weight: 600;">Clocked in as ${esc(s.type)}</div>
+            <div style="font-size: 48px; font-weight: 800; color: var(--primary-pine); margin: 8px 0;" id="tm">${dur(worked(s))}</div>
+            <div style="color: var(--text-light); font-size: 12px;">Active Task: ${esc(tname(s.taskId))}</div>
+          </div>
+          <div style="display: flex; gap: 12px;">
+            ${b
+              ? '<button class="btn-primary" id="bk" style="flex:1; background:var(--accent-amber);">Resume Work</button>'
+              : '<button class="select-filter" id="bk" style="flex:1;">Take a Break</button>'
             }
-          <button class="btn-action-del" id="co" style="flex:1; padding: 12px; font-size: 14px;">End Shift (Clock Out)</button>
-        </div>
-      `
-            : `
-        <div class="input-group" style="margin-bottom: 16px;">
-          <label>Work Type / Category</label>
-          <select id="wt">
-            ${categories.map((t) => `<option value="${t}">${t}</option>`).join("")}
-          </select>
-        </div>
-
-        <div class="input-group" style="margin-bottom: 24px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <label style="margin-bottom: 0;">Working on Task (Optional)</label>
-            <button type="button" id="btnToggleTaskMode" class="btn-task-toggle">
-              ✏️ Type custom task
-            </button>
+            <button class="btn-action-del" id="co" style="flex:1; padding: 12px; font-size: 14px;">End Shift (Clock Out)</button>
+          </div>
+        `
+        : `
+          <!-- Themed Work Type Dropdown -->
+          <div class="input-group" style="margin-bottom: 16px;">
+            <label>Work Type / Category</label>
+            <div class="custom-select-wrap">
+              <input type="hidden" id="wt" value="${esc(categories[0] || 'Mobile App Development')}">
+              <button type="button" class="custom-select-trigger">
+                <span class="custom-select-label">${esc(categories[0] || 'Mobile App Development')}</span>
+                <svg class="custom-select-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="custom-select-menu">
+                ${categories.map((t, idx) => `
+                  <button type="button" class="custom-select-opt ${idx === 0 ? "selected" : ""}" data-val="${esc(t)}">
+                    <span>${esc(t)}</span>
+                    ${idx === 0 ? `<svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
+                  </button>
+                `).join("")}
+              </div>
+            </div>
           </div>
 
-          <!-- Select from assigned tasks -->
-          <div id="taskSelectWrap">
-            <select id="wk">
-              <option value="">– General Work / No specific task –</option>
-              ${mine.map((t) => `<option value="${t.id}">${esc(t.title)}</option>`).join("")}
-              <option value="__custom__">✏️ Custom task (type manually)...</option>
-            </select>
+          <div class="input-group" style="margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label style="margin-bottom: 0;">Working on Task (Optional)</label>
+              <button type="button" id="btnToggleTaskMode" class="btn-task-toggle">
+                ✏️ Type custom task
+              </button>
+            </div>
+
+            <!-- Themed Task Dropdown -->
+            <div id="taskSelectWrap">
+              <div class="custom-select-wrap">
+                <input type="hidden" id="wk" value="">
+                <button type="button" class="custom-select-trigger">
+                  <span class="custom-select-label">– General Work / No specific task –</span>
+                  <svg class="custom-select-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="custom-select-menu">
+                  <button type="button" class="custom-select-opt selected" data-val="">
+                    <span>– General Work / No specific task –</span>
+                    <svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                  ${mine.map((t) => `
+                    <button type="button" class="custom-select-opt" data-val="${esc(t.id)}">
+                      <span>${esc(t.title)}</span>
+                    </button>
+                  `).join("")}
+                  <button type="button" class="custom-select-opt opt-custom-action" data-val="__custom__">
+                    <span>✏️ Custom task (type manually)...</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div id="taskCustomWrap" style="display: none; margin-top: 6px;">
+              <input id="customWk" type="text" placeholder="e.g. Client call, Team standup, Quick bug fix...">
+            </div>
           </div>
 
-          <!-- Or type custom task text -->
-          <div id="taskCustomWrap" style="display: none; margin-top: 6px;">
-            <input id="customWk" type="text" placeholder="e.g. Client call, Team standup, Quick bug fix...">
-          </div>
-        </div>
-
-        <button class="btn-primary" id="ci" style="width: 100%; padding: 14px; font-size: 15px;">Start Work Shift</button>
-      `
-        }
+          <button class="btn-primary" id="ci" style="width: 100%; padding: 14px; font-size: 15px;">Start Work Shift</button>
+        `
+      }
     </div>
   `;
 }
 
 export function sheetView(adm, me) {
-    const ws = weekStart();
-    const rows = (adm ? S.sessions : S.sessions.filter((x) => x.uid === me.id && x.start >= ws)).sort(
-        (a, b) => b.start - a.start
-    );
+  const ws = weekStart();
+  const rows = (adm ? S.sessions : S.sessions.filter((x) => x.uid === me.id && x.start >= ws)).sort(
+    (a, b) => b.start - a.start
+  );
 
-    return `
+  return `
     <div class="full-width-card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <div>
@@ -578,9 +631,7 @@ export function sheetView(adm, me) {
           </thead>
           <tbody>
             ${rows.length
-            ? rows
-                .map(
-                    (x) => `
+              ? rows.map((x) => `
                 <tr>
                   ${adm ? `<td style="font-weight: 600;">${esc(user(x.uid)?.name || "Unknown")}</td>` : ""}
                   <td>${day(x.start)}</td>
@@ -591,11 +642,9 @@ export function sheetView(adm, me) {
                   <td>${Math.round((x.breaks || []).reduce((a, b) => a + ((b.e || Date.now()) - b.s), 0) / 6e4)} min</td>
                   <td style="font-weight: 700;">${hrs(worked(x))} h</td>
                 </tr>
-              `
-                )
-                .join("")
-            : '<tr><td colspan="8" style="text-align: center; color: var(--text-light);">No time entries found.</td></tr>'
-        }
+              `).join("")
+              : '<tr><td colspan="8" style="text-align: center; color: var(--text-light);">No time entries found.</td></tr>'
+            }
           </tbody>
         </table>
       </div>
@@ -604,7 +653,7 @@ export function sheetView(adm, me) {
 }
 
 export function loginView() {
-    return `
+  return `
     <div class="auth-wrapper">
       <div class="auth-card">
         <div class="auth-brand">
@@ -629,7 +678,7 @@ export function loginView() {
 }
 
 export function setupView() {
-    return `
+  return `
     <div class="auth-wrapper">
       <div class="auth-card">
         <div class="auth-brand">
