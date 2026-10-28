@@ -109,7 +109,6 @@ export function dashboardView(me) {
   const adm = me?.role === "admin";
   const ws = weekStart();
 
-  // Scope datasets strictly: Admin gets all, Employee gets only their own
   const relevantSessions = adm
     ? S.sessions
     : S.sessions.filter((x) => x.uid === me?.id);
@@ -125,11 +124,9 @@ export function dashboardView(me) {
   const overdueTasks = relevantTasks.filter((t) => tstate(t)[1] === "over").length;
   const categories = TASK_TYPES || TYPES;
 
-  // Admin-only metrics
   const clockedInCount = S.sessions.filter((x) => !x.end).length;
   const activeWorkers = S.sessions.filter((x) => !x.end);
 
-  // Employee-only metrics
   const myActiveSession = active(me?.id);
   const isClockedIn = Boolean(myActiveSession);
   const myPendingTasks = relevantTasks.filter((t) => t.status !== "Done");
@@ -138,7 +135,6 @@ export function dashboardView(me) {
     <div class="dashboard-grid">
       <div class="grid-col-main">
         <div class="kpi-matrix">
-          <!-- KPI 1: Working Hours -->
           <div class="kpi-card kpi-card-pine">
             <div class="kpi-header">
               <div class="kpi-icon-pill">
@@ -155,7 +151,6 @@ export function dashboardView(me) {
             </div>
           </div>
 
-          <!-- KPI 2: Shift / Live status -->
           <div class="kpi-card">
             <div class="kpi-header">
               <div class="kpi-icon-pill">
@@ -178,7 +173,6 @@ export function dashboardView(me) {
             </div>
           </div>
 
-          <!-- KPI 3: Tasks Completed -->
           <div class="kpi-card">
             <div class="kpi-header">
               <div class="kpi-icon-pill">
@@ -197,7 +191,6 @@ export function dashboardView(me) {
             </div>
           </div>
 
-          <!-- KPI 4: Pending / Overdue -->
           <div class="kpi-card">
             <div class="kpi-header">
               <div class="kpi-icon-pill">
@@ -217,7 +210,6 @@ export function dashboardView(me) {
           </div>
         </div>
 
-        <!-- Working Hours Chart -->
         <div class="chart-card">
           <div class="card-header-row">
             <div>
@@ -243,14 +235,13 @@ export function dashboardView(me) {
               </div>
             </div>
           </div>
-          <div style="height: 270px;">
+          <div class="chart-canvas-wrap">
             <canvas id="barChartDaily"></canvas>
           </div>
         </div>
       </div>
 
       <div class="grid-col-side">
-        <!-- Category Statistics Card -->
         <div class="sage-summary-card">
           <div>
             <div class="card-header-row" style="margin-bottom: 8px;">
@@ -277,11 +268,15 @@ export function dashboardView(me) {
           </div>
         </div>
 
-        <!-- Bottom Card: Admin gets Team Clocked In, Employee gets My Active Tasks -->
         <div class="active-workers-card">
           ${adm ? `
-            <h3>Team Clocked In</h3>
-            <p style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">Real-time active shifts</p>
+            <div class="card-header-row" style="margin-bottom: 12px;">
+              <div>
+                <h3>Team Clocked In</h3>
+                <p style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">Real-time active shifts</p>
+              </div>
+              <span class="growth-badge subtle">${activeWorkers.length} Active</span>
+            </div>
             <div class="worker-pill-list">
               ${activeWorkers.length
                 ? activeWorkers
@@ -300,7 +295,19 @@ export function dashboardView(me) {
                     `
                   )
                   .join("")
-                : '<p style="color: var(--text-light); font-size: 12px; margin-top: 10px;">Nobody is currently clocked in.</p>'
+                : `
+                  <div class="my-tasks-empty">
+                    <div class="empty-state-badge">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                      </svg>
+                    </div>
+                    <h4>Nobody Clocked In</h4>
+                    <p>No team members are currently on shift.</p>
+                  </div>
+                `
               }
             </div>
           ` : `
@@ -329,11 +336,11 @@ export function dashboardView(me) {
                           </div>
                           <div class="my-task-meta-row">
                             <span class="meta-pill meta-type">
-                              <svg viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                               ${esc(t.type || "General")}
                             </span>
                             <span class="meta-pill meta-deadline">
-                              <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
                               ${t.deadline}
                             </span>
                           </div>
@@ -344,14 +351,16 @@ export function dashboardView(me) {
                   <div class="my-tasks-footer">
                     <button type="button" class="btn-view-all-tasks" data-t="tasks">
                       <span>Go to Tasks &amp; Deadlines</span>
-                      <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
                     </button>
                   </div>
                 `
                 : `
                   <div class="my-tasks-empty">
-                    <div class="empty-icon-pill">
-                      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                    <div class="empty-state-badge">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
                     </div>
                     <h4>No Pending Tasks</h4>
                     <p>You are all caught up with your deadlines.</p>
@@ -633,7 +642,6 @@ export function trackView(me) {
           </div>
         `
         : `
-          <!-- Themed Work Type Dropdown -->
           <div class="input-group" style="margin-bottom: 16px;">
             <label>Work Type / Category</label>
             <div class="custom-select-wrap">
@@ -661,7 +669,6 @@ export function trackView(me) {
               </button>
             </div>
 
-            <!-- Themed Task Dropdown -->
             <div id="taskSelectWrap">
               <div class="custom-select-wrap">
                 <input type="hidden" id="wk" value="">
