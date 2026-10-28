@@ -209,7 +209,7 @@ export function dashboardView() {
               </div>
             </div>
           </div>
-          <div style="height: 270px;">
+          <div style="flex: 1; min-height: 270px; position: relative;">
             <canvas id="barChartDaily"></canvas>
           </div>
         </div>

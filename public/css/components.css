@@ -73,18 +73,21 @@
   grid-template-columns: 1fr 340px;
   gap: 24px;
   padding: 12px 32px 36px 32px;
+  align-items: stretch;
 }
 
 .grid-col-main {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  height: 100%;
 }
 
 .grid-col-side {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  height: 100%;
 }
 
 /* KPI Cards */
@@ -195,12 +198,15 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
-/* Chart Cards */
+/* ================= CHART CARD (STRETCHES TO BOTTOM BASELINE) ================= */
 .chart-card {
   background: var(--bg-card);
   border-radius: var(--radius-lg);
   padding: 24px;
   box-shadow: var(--shadow-card);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .card-header-row {
@@ -218,6 +224,21 @@
 .card-header-row p {
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.chart-card > div:last-child {
+  flex: 1;
+  min-height: 270px;
+  height: auto !important;
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-card > div:last-child canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .select-filter {
@@ -277,12 +298,15 @@
   color: #073b28;
 }
 
-/* Active Live Workers Card */
+/* ================= ACTIVE LIVE WORKERS CARD (ALIGNED WITH CHART) ================= */
 .active-workers-card {
   background: #fff;
   border-radius: var(--radius-lg);
   padding: 22px;
   box-shadow: var(--shadow-card);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .worker-pill-list {
@@ -290,6 +314,7 @@
   flex-direction: column;
   gap: 8px;
   margin-top: 14px;
+  flex: 1;
 }
 
 .worker-item-row {
@@ -439,9 +464,7 @@ button.is-loading.btn-secondary::after {
   to { transform: rotate(360deg); }
 }
 
-/* ================================================================
-   UNIFIED TASK STATUS DROPDOWN
-   ================================================================ */
+/* ================= TASK STATUS DROPDOWN ================= */
 .status-dropdown {
   position: relative;
   display: inline-block;
@@ -505,7 +528,6 @@ button.is-loading.btn-secondary::after {
 }
 .status-trigger-done .status-dot { background: var(--accent-emerald); }
 
-/* Themed Status Menu Overlay */
 .status-dropdown-menu {
   position: fixed;
   min-width: 165px;
@@ -569,9 +591,7 @@ button.is-loading.btn-secondary::after {
   fill: none;
 }
 
-/* ================================================================
-   UNIFIED CHART FILTER DROPDOWN
-   ================================================================ */
+/* ================= CHART FILTER DROPDOWN ================= */
 .chart-filter-dropdown {
   position: relative;
   display: inline-block;
@@ -622,7 +642,6 @@ button.is-loading.btn-secondary::after {
   transform: rotate(180deg);
 }
 
-/* Themed Chart Menu Overlay */
 .chart-filter-menu {
   display: none;
   position: absolute;
