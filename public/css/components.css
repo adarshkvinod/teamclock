@@ -701,3 +701,191 @@ button.is-loading.btn-secondary::after {
   stroke-width: 2.5;
   fill: none;
 }
+/* ================================================================
+   EMPLOYEE DASHBOARD: MY ACTIVE TASKS CARD
+   ================================================================ */
+
+/* Enforce non-wrapping on all status tags */
+.tag-status {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap !important;
+  flex-shrink: 0;
+  line-height: 1.2;
+  letter-spacing: 0.2px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Container fills the card height cleanly */
+.my-tasks-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+  min-height: 0;
+}
+
+.my-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Individual Task Card */
+.my-task-card {
+  background: #ffffff;
+  border: 1px solid #edf0f5;
+  border-left: 3.5px solid #cbd5e1;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.my-task-card:hover {
+  border-color: #cbd5e1;
+  border-left-color: var(--primary-pine);
+  box-shadow: 0 4px 12px rgba(7, 59, 40, 0.06);
+  transform: translateY(-1px);
+}
+
+.my-task-card.is-in-progress {
+  border-left-color: #0ea5e9;
+  background: #fafcfe;
+}
+
+/* Header Row: Title & Status Badge */
+.my-task-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.my-task-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f291e;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+/* Metadata Row: Category & Deadline Chips */
+.my-task-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.meta-pill svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  fill: none;
+}
+
+.meta-pill.meta-deadline {
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+/* Bottom Card Action (Eliminates the empty canvas void) */
+.my-tasks-footer {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.btn-view-all-tasks {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary-pine);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btn-view-all-tasks:hover {
+  background: #f0fdf4;
+  color: #073b28;
+}
+
+.btn-view-all-tasks svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  fill: none;
+}
+
+/* Polished Empty State */
+.my-tasks-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  text-align: center;
+  flex: 1;
+}
+
+.my-tasks-empty .empty-icon-pill {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent-emerald-subtle);
+  color: var(--primary-pine);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.my-tasks-empty .empty-icon-pill svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  fill: none;
+}
+
+.my-tasks-empty h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f291e;
+}
+
+.my-tasks-empty p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}

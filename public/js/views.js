@@ -105,90 +105,124 @@ export function layoutView(me, currentContent) {
   `;
 }
 
-export function dashboardView() {
-  const ws = weekStart(),
-    wkS = S.sessions.filter((x) => (x.end || Date.now()) >= ws);
+export function dashboardView(me) {
+  const adm = me?.role === "admin";
+  const ws = weekStart();
+
+  // Scope datasets strictly: Admin gets all, Employee gets only their own
+  const relevantSessions = adm
+    ? S.sessions
+    : S.sessions.filter((x) => x.uid === me?.id);
+
+  const relevantTasks = adm
+    ? S.tasks
+    : S.tasks.filter((t) => t.assignee === me?.id);
+
+  const wkS = relevantSessions.filter((x) => (x.end || Date.now()) >= ws);
   const totalHours = wkS.reduce((a, x) => a + worked(x), 0);
-  const clockedInCount = S.sessions.filter((x) => !x.end).length;
-  const doneTasks = S.tasks.filter((t) => t.status === "Done").length;
-  const overdueTasks = S.tasks.filter((t) => tstate(t)[1] === "over").length;
-  const activeWorkers = S.sessions.filter((x) => !x.end);
+
+  const doneTasks = relevantTasks.filter((t) => t.status === "Done").length;
+  const overdueTasks = relevantTasks.filter((t) => tstate(t)[1] === "over").length;
   const categories = TASK_TYPES || TYPES;
+
+  // Admin-only metrics
+  const clockedInCount = S.sessions.filter((x) => !x.end).length;
+  const activeWorkers = S.sessions.filter((x) => !x.end);
+
+  // Employee-only metrics
+  const myActiveSession = active(me?.id);
+  const isClockedIn = Boolean(myActiveSession);
+  const myPendingTasks = relevantTasks.filter((t) => t.status !== "Done");
 
   return `
     <div class="dashboard-grid">
       <div class="grid-col-main">
         <div class="kpi-matrix">
+          <!-- KPI 1: Working Hours -->
           <div class="kpi-card kpi-card-pine">
             <div class="kpi-header">
               <div class="kpi-icon-pill">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               </div>
-              <span class="growth-badge positive">+14.2%</span>
+              <span class="growth-badge positive">${adm ? "+14.2%" : "This Week"}</span>
             </div>
             <div>
-              <div class="kpi-label">Total Working Hours</div>
+              <div class="kpi-label">${adm ? "Total Team Working Hours" : "My Working Hours"}</div>
               <div class="kpi-value-row">
                 <span class="kpi-big-number">${hrs(totalHours)} h</span>
-                <span class="kpi-caption">Hours vs Last Week</span>
+                <span class="kpi-caption">${adm ? "Across all employees" : "Logged this week"}</span>
               </div>
             </div>
           </div>
 
+          <!-- KPI 2: Shift / Live status -->
           <div class="kpi-card">
             <div class="kpi-header">
               <div class="kpi-icon-pill">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
               </div>
-              <span class="growth-badge subtle">Live</span>
+              <span class="growth-badge ${adm ? "subtle" : isClockedIn ? "positive" : "subtle"}">
+                ${adm ? "Live" : isClockedIn ? "Active" : "Offline"}
+              </span>
             </div>
             <div>
-              <div class="kpi-label">Clocked In Now</div>
+              <div class="kpi-label">${adm ? "Clocked In Now" : "Current Shift Status"}</div>
               <div class="kpi-value-row">
-                <span class="kpi-big-number">${clockedInCount}</span>
-                <span class="kpi-caption">Active team members</span>
+                <span class="kpi-big-number" style="${!adm ? "font-size: 22px;" : ""}">
+                  ${adm ? clockedInCount : isClockedIn ? "Clocked In" : "Offline"}
+                </span>
+                <span class="kpi-caption">
+                  ${adm ? "Active team members" : isClockedIn ? dur(worked(myActiveSession)) : "Ready to start shift"}
+                </span>
               </div>
             </div>
           </div>
 
+          <!-- KPI 3: Tasks Completed -->
           <div class="kpi-card">
             <div class="kpi-header">
               <div class="kpi-icon-pill">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
-              <span class="growth-badge positive">${S.tasks.length ? Math.round((doneTasks / S.tasks.length) * 100) : 0}%</span>
+              <span class="growth-badge positive">
+                ${relevantTasks.length ? Math.round((doneTasks / relevantTasks.length) * 100) : 0}%
+              </span>
             </div>
             <div>
-              <div class="kpi-label">Tasks Completed</div>
+              <div class="kpi-label">${adm ? "Tasks Completed" : "My Completed Tasks"}</div>
               <div class="kpi-value-row">
                 <span class="kpi-big-number">${doneTasks}</span>
-                <span class="kpi-caption">Of ${S.tasks.length} total tasks</span>
+                <span class="kpi-caption">Of ${relevantTasks.length} ${adm ? "total tasks" : "assigned to me"}</span>
               </div>
             </div>
           </div>
 
+          <!-- KPI 4: Pending / Overdue -->
           <div class="kpi-card">
             <div class="kpi-header">
               <div class="kpi-icon-pill">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               </div>
-              <span class="growth-badge ${overdueTasks ? "negative" : "subtle"}">${overdueTasks} Overdue</span>
+              <span class="growth-badge ${overdueTasks ? "negative" : "subtle"}">
+                ${overdueTasks} Overdue
+              </span>
             </div>
             <div>
-              <div class="kpi-label">Pending Deadlines</div>
+              <div class="kpi-label">${adm ? "Pending Deadlines" : "My Overdue Tasks"}</div>
               <div class="kpi-value-row">
                 <span class="kpi-big-number">${overdueTasks}</span>
-                <span class="kpi-caption">Requires action</span>
+                <span class="kpi-caption">${overdueTasks ? "Requires action" : "All tasks on track"}</span>
               </div>
             </div>
           </div>
         </div>
 
+        <!-- Working Hours Chart -->
         <div class="chart-card">
           <div class="card-header-row">
             <div>
-              <h3>Working Hours Activity</h3>
-              <p id="chartRangeSubtitle">Daily hours logged across the last 7 days</p>
+              <h3>${adm ? "Team Working Hours Activity" : "My Working Hours Activity"}</h3>
+              <p id="chartRangeSubtitle">${adm ? "Daily team hours logged across the last 7 days" : "Your daily hours logged across the last 7 days"}</p>
             </div>
             <div class="chart-filter-dropdown" id="chartFilterDropdown">
               <button type="button" class="chart-filter-btn" id="chartFilterBtn">
@@ -209,19 +243,20 @@ export function dashboardView() {
               </div>
             </div>
           </div>
-          <div style="flex: 1; min-height: 270px; position: relative;">
+          <div style="height: 270px;">
             <canvas id="barChartDaily"></canvas>
           </div>
         </div>
       </div>
 
       <div class="grid-col-side">
+        <!-- Category Statistics Card -->
         <div class="sage-summary-card">
           <div>
             <div class="card-header-row" style="margin-bottom: 8px;">
               <div>
-                <h3>Role Statistics</h3>
-                <p>Hours logged by category</p>
+                <h3>${adm ? "Role Statistics" : "My Work Focus"}</h3>
+                <p>${adm ? "Hours logged by category (Team)" : "Your hours logged by category"}</p>
               </div>
               <span class="growth-badge positive">This Week</span>
             </div>
@@ -242,30 +277,89 @@ export function dashboardView() {
           </div>
         </div>
 
+        <!-- Bottom Card: Admin gets Team Clocked In, Employee gets My Active Tasks -->
         <div class="active-workers-card">
-          <h3>Team Clocked In</h3>
-          <p style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">Real-time active shifts</p>
-          <div class="worker-pill-list">
-            ${activeWorkers.length
-              ? activeWorkers
-                .map(
-                  (w) => `
-                    <div class="worker-item-row">
-                      <div class="worker-info-meta">
-                        <span class="status-indicator"></span>
-                        <div>
-                          <div class="worker-name">${esc(user(w.uid)?.name || "Unknown")}</div>
-                          <div class="worker-role">${esc(w.type)}</div>
+          ${adm ? `
+            <h3>Team Clocked In</h3>
+            <p style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">Real-time active shifts</p>
+            <div class="worker-pill-list">
+              ${activeWorkers.length
+                ? activeWorkers
+                  .map(
+                    (w) => `
+                      <div class="worker-item-row">
+                        <div class="worker-info-meta">
+                          <span class="status-indicator"></span>
+                          <div>
+                            <div class="worker-name">${esc(user(w.uid)?.name || "Unknown")}</div>
+                            <div class="worker-role">${esc(w.type)}</div>
+                          </div>
                         </div>
+                        <span class="tag-status track" data-worker-timer="${w.id || w._id}">${dur(worked(w))}</span>
                       </div>
-                      <span class="tag-status track" data-worker-timer="${w.id || w._id}">${dur(worked(w))}</span>
+                    `
+                  )
+                  .join("")
+                : '<p style="color: var(--text-light); font-size: 12px; margin-top: 10px;">Nobody is currently clocked in.</p>'
+              }
+            </div>
+          ` : `
+            <div class="card-header-row" style="margin-bottom: 12px;">
+              <div>
+                <h3>My Active Tasks</h3>
+                <p style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">Tasks awaiting completion</p>
+              </div>
+              <span class="growth-badge ${myPendingTasks.length ? "subtle" : "positive"}">
+                ${myPendingTasks.length ? `${myPendingTasks.length} Pending` : "All Done"}
+              </span>
+            </div>
+
+            <div class="my-tasks-container">
+              ${myPendingTasks.length
+                ? `
+                  <div class="my-tasks-list">
+                    ${myPendingTasks.slice(0, 4).map((t) => {
+                      const [lbl, cls] = tstate(t);
+                      const isProgress = t.status === "In progress";
+                      return `
+                        <div class="my-task-card ${isProgress ? "is-in-progress" : ""}">
+                          <div class="my-task-header">
+                            <span class="my-task-title">${esc(t.title)}</span>
+                            <span class="tag-status ${cls}">${lbl}</span>
+                          </div>
+                          <div class="my-task-meta-row">
+                            <span class="meta-pill meta-type">
+                              <svg viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                              ${esc(t.type || "General")}
+                            </span>
+                            <span class="meta-pill meta-deadline">
+                              <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                              ${t.deadline}
+                            </span>
+                          </div>
+                        </div>
+                      `;
+                    }).join("")}
+                  </div>
+                  <div class="my-tasks-footer">
+                    <button type="button" class="btn-view-all-tasks" data-t="tasks">
+                      <span>Go to Tasks &amp; Deadlines</span>
+                      <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                  </div>
+                `
+                : `
+                  <div class="my-tasks-empty">
+                    <div class="empty-icon-pill">
+                      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
-                  `
-                )
-                .join("")
-              : '<p style="color: var(--text-light); font-size: 12px; margin-top: 10px;">Nobody is currently clocked in.</p>'
-            }
-          </div>
+                    <h4>No Pending Tasks</h4>
+                    <p>You are all caught up with your deadlines.</p>
+                  </div>
+                `
+              }
+            </div>
+          `}
         </div>
       </div>
     </div>
@@ -301,7 +395,6 @@ export function tasksView(adm) {
             <input id="nt" placeholder="e.g. Implement user authentication flow">
           </div>
 
-          <!-- Themed Task Category Dropdown -->
           <div class="input-group">
             <label>Task Category</label>
             <div class="custom-select-wrap">
@@ -321,7 +414,6 @@ export function tasksView(adm) {
             </div>
           </div>
 
-          <!-- Themed Assignee Dropdown -->
           <div class="input-group">
             <label>Assignee</label>
             <div class="custom-select-wrap">
@@ -345,7 +437,6 @@ export function tasksView(adm) {
             </div>
           </div>
 
-          <!-- Themed Deadline Date Picker -->
           <div class="input-group">
             <label>Deadline</label>
             <div class="custom-datepicker-wrap" id="deadlinePickerWrap">

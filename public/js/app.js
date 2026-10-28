@@ -3,14 +3,14 @@ import { $, dur, worked, active, user } from "./utils.js";
 import { API, loadData } from "./api.js";
 import { drawDashboardCharts, clearCharts } from "./charts.js";
 import {
-    layoutView,
-    dashboardView,
-    tasksView,
-    teamView,
-    trackView,
-    sheetView,
-    loginView,
-    setupView
+  layoutView,
+  dashboardView,
+  tasksView,
+  teamView,
+  trackView,
+  sheetView,
+  loginView,
+  setupView
 } from "./views.js";
 import { bindEvents, bindAuthEvents } from "./events.js";
 
@@ -25,7 +25,7 @@ function tick() {
     if (sidebarTimer) sidebarTimer.textContent = currentDuration;
   }
 
-  // 2. Update all active employee timers in the "Team Clocked In" dashboard card
+  // 2. Update active employee timers in the Admin "Team Clocked In" card
   document.querySelectorAll("[data-worker-timer]").forEach((el) => {
     const sessionId = el.dataset.workerTimer;
     const session = S.sessions.find((x) => (x.id || x._id) === sessionId);
@@ -36,82 +36,94 @@ function tick() {
 }
 
 function render() {
-    clearCharts();
-    const me = user(S.me);
+  clearCharts();
+  const me = user(S.me);
 
-    if (!me) {
-        if (S.needsSetup) {
-            $("#app").innerHTML = setupView();
-            bindAuthEvents(true);
-        } else {
-            $("#app").innerHTML = loginView();
-            bindAuthEvents(false);
-        }
-        return;
+  if (!me) {
+    if (S.needsSetup) {
+      $("#app").innerHTML = setupView();
+      bindAuthEvents(true);
+    } else {
+      $("#app").innerHTML = loginView();
+      bindAuthEvents(false);
     }
+    return;
+  }
 
-    const adm = me.role === "admin";
-    if (!S.tab) S.tab = adm ? "dashboard" : "track";
+  const adm = me.role === "admin";
+  if (!S.tab) S.tab = adm ? "dashboard" : "track";
 
-    let content = "";
-    switch (S.tab) {
-        case "dashboard": content = dashboardView(); break;
-        case "tasks": content = tasksView(adm); break;
-        case "team": content = teamView(); break;
-        case "track": content = trackView(me); break;
-        case "sheet": content = sheetView(adm, me); break;
-        default: content = dashboardView();
-    }
+  let content = "";
+  switch (S.tab) {
+    case "dashboard":
+      content = dashboardView(me);
+      break;
+    case "tasks":
+      content = tasksView(adm);
+      break;
+    case "team":
+      content = teamView();
+      break;
+    case "track":
+      content = trackView(me);
+      break;
+    case "sheet":
+      content = sheetView(adm, me);
+      break;
+    default:
+      content = dashboardView(me);
+  }
 
-    $("#app").innerHTML = layoutView(me, content);
-    bindEvents(me);
+  $("#app").innerHTML = layoutView(me, content);
+  bindEvents(me);
 
-    if (S.tab === "dashboard") {
-        drawDashboardCharts();
-    }
+  if (S.tab === "dashboard") {
+    drawDashboardCharts();
+  }
 }
 
 // Global render trigger
 window.addEventListener("app:render", render);
 
 async function init() {
-    if (typeof loadTokenFromStorage === "function") {
-        loadTokenFromStorage();
-    } else if (typeof loadTokenStorage === "function") {
-        loadTokenStorage();
-    }
+  if (typeof loadTokenFromStorage === "function") {
+    loadTokenFromStorage();
+  } else if (typeof loadTokenStorage === "function") {
+    loadTokenStorage();
+  }
 
-    try {
-        const state = await API("GET", "/state");
-        S.needsSetup = state.needsSetup;
-    } catch (e) {
-        $("#app").innerHTML = `
+  try {
+    const state = await API("GET", "/state");
+    S.needsSetup = state.needsSetup;
+  } catch (e) {
+    $("#app").innerHTML = `
       <div class="auth-wrapper">
         <div class="auth-card">
           <h2>Server Unreachable</h2>
           <p>Cannot reach the database. Please verify your MongoDB configuration.</p>
         </div>
       </div>`;
-        return;
+    return;
+  }
+
+  S.ready = 7;
+  if (TOK) {
+    try {
+      await loadData();
+    } catch (e) {}
+  }
+
+  render();
+
+  // 1-second timer ticker
+  setInterval(tick, 1000);
+
+  // Background poller every 15 seconds
+  setInterval(() => {
+    if (TOK && document.visibilityState === "visible") {
+      loadData(true).catch(() => {});
     }
-
-    S.ready = 7;
-    if (TOK) {
-        try {
-            await loadData();
-        } catch (e) { }
-    }
-
-    render();
-    // 1-second timer ticker (only updates timer numbers, does not re-render DOM)
-    setInterval(tick, 1000);
-
-    // Background poller: 15 seconds, background mode enabled, tab visibility check
-    setInterval(() => {
-        if (TOK && document.visibilityState === "visible") {
-            loadData(true).catch(() => { });
-        }
-    }, 15000);
+  }, 15000);
 }
 
 init();
