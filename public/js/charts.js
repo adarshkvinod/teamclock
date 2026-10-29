@@ -1,5 +1,5 @@
 import { S } from "./state.js";
-import { worked, user } from "./utils.js";
+import { worked, user, pSessions } from "./utils.js";
 
 let barChartInstance = null;
 let donutChartInstance = null;
@@ -28,9 +28,10 @@ export function drawDashboardCharts(days = 7) {
   const adm = me?.role === "admin";
 
   // Filter sessions: Admin gets all, Employee gets only their own
+  const projectSessions = pSessions();
   const targetSessions = adm
-    ? S.sessions
-    : S.sessions.filter((s) => s.uid === S.me);
+    ? projectSessions
+    : projectSessions.filter((s) => s.uid === S.me);
 
   // 1. Daily Working Hours Bar Chart
   const labels = [];

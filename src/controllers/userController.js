@@ -88,5 +88,6 @@ exports.deleteEmployee = async (req, res) => {
   if (user.role === "admin") return res.status(403).json({ error: "Cannot delete the admin account" });
 
   await col.deleteOne({ _id: req.params.id });
+  await db.collection("projects").updateMany({ members: req.params.id }, { $pull: { members: req.params.id } });
   res.json({ ok: 1 });
 };

@@ -1,4 +1,4 @@
-import { TOK, S, clearTokenStorage, saveTokenToStorage } from "./state.js";
+import { TOK, S, clearTokenStorage, saveTokenToStorage, loadProjectSelection } from "./state.js";
 import { user } from "./utils.js";
 
 let lastDataSignature = "";
@@ -48,7 +48,10 @@ export async function loadData(isBackground = false) {
   // Create lightweight fingerprint of incoming data
   const newSignature = JSON.stringify({
     users: (j.users || []).map((u) => u.id + u.workType + (u.roles || []).join("")),
-    tasks: (j.tasks || []).map((t) => t.id + t.status + t.deadline),
+    projects: (j.projects || []).map(
+      (p) => p.id + p.name + p.status + (p.description || "") + (p.start || "") + (p.end || "") + (p.members || []).join(",")
+    ),
+    tasks: (j.tasks || []).map((t) => t.id + t.status + t.deadline + t.assignee + t.projectId),
     sessionsCount: (j.sessions || []).length,
     activeSession: (j.sessions || []).find((s) => !s.end)
   });
@@ -79,6 +82,25 @@ export async function loadData(isBackground = false) {
     return;
   }
 
+  // First load after login / reopen: jump back into the last opened project (if still accessible).
+  if (!S.projectsRestored) {
+    S.projectsRestored = true;
+    const saved = loadProjectSelection(S.me);
+    if (saved && S.projects.some((p) => p.id === saved)) {
+      S.projectId = saved;
+      S.tab = "dashboard";
+    } else {
+      S.projectId = null;
+      S.tab = "projects";
+    }
+  }
+
+  // The opened project may have been deleted or the user removed from it.
+  if (S.projectId && !S.projects.some((p) => p.id === S.projectId)) {
+    S.projectId = null;
+    S.tab = "projects";
+  }
+
   window.dispatchEvent(new CustomEvent("app:render"));
 }
 
@@ -86,5 +108,6 @@ export async function authenticate(endpoint, credentials) {
   const j = await API("POST", endpoint, credentials);
   saveTokenToStorage(j.token, j.id);
   S.tab = null;
+  S.projectsRestored = false;
   await loadData(false);
 }

@@ -9,6 +9,8 @@ import {
   teamView,
   trackView,
   sheetView,
+  projectsView,
+  membersView,
   loginView,
   setupView
 } from "./views.js";
@@ -49,10 +51,21 @@ function render() {
   }
 
   const adm = me.role === "admin";
-  if (!S.tab) S.tab = adm ? "dashboard" : "track";
+
+  // Keep the tab consistent with the scope: project tabs need an open project.
+  const PROJECT_TABS = ["dashboard", "tasks", "track", "members"];
+  if (!S.projectId && (!S.tab || PROJECT_TABS.includes(S.tab))) S.tab = "projects";
+  if (S.projectId && (!S.tab || S.tab === "projects")) S.tab = "dashboard";
+  if (S.tab === "team" && !adm) S.tab = S.projectId ? "dashboard" : "projects";
 
   let content = "";
   switch (S.tab) {
+    case "projects":
+      content = projectsView(adm, me);
+      break;
+    case "members":
+      content = membersView(adm, me);
+      break;
     case "dashboard":
       content = dashboardView(me);
       break;

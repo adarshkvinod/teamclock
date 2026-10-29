@@ -46,8 +46,29 @@ export const worked = (s) =>
 
 export const user = (id) => S.users?.find((u) => u.id === id);
 
-export const pname = (id) =>
-  S.projects?.find((p) => (p.id || p._id) === id)?.name || id || "–";
+export const project = (id) => S.projects?.find((p) => p.id === id);
+
+export const pname = (id) => (id ? project(id)?.name || "Former project" : "–");
+
+// The project currently opened (null on the Projects home page)
+export const cur = () => (S.projectId ? project(S.projectId) || null : null);
+
+// Tasks / sessions limited to the opened project (everything when none is open)
+export const pTasks = () => (S.projectId ? (S.tasks || []).filter((t) => t.projectId === S.projectId) : S.tasks || []);
+export const pSessions = () =>
+  S.projectId ? (S.sessions || []).filter((s) => s.projectId === S.projectId) : S.sessions || [];
+
+// Employees who are members of a project
+export const projectMembers = (p) =>
+  (p?.members || []).map((id) => user(id)).filter((u) => u && u.role !== "admin");
+
+// Stable accent colour per project, used for avatars
+const PROJECT_COLORS = ["#073b28", "#0e7490", "#7c3aed", "#b45309", "#be123c", "#1d4ed8", "#047857", "#a21caf"];
+export const pcolor = (id) => {
+  let h = 0;
+  for (const c of String(id || "")) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return PROJECT_COLORS[h % PROJECT_COLORS.length];
+};
 
 export const tname = (id) => S.tasks?.find((t) => t.id === id)?.title || id || "–";
 

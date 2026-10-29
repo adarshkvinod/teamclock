@@ -16,3 +16,14 @@
 
 ## Local test
 npm install, then set MONGODB_URI and JWT_SECRET and run `npx vercel dev`.
+
+## Projects
+Work is organised by project. The admin creates projects and picks which employees are members;
+employees only see (and can clock in to) projects they belong to. Each project has its own
+dashboard, tasks, time tracker, timesheet and member list. The last opened project is remembered
+in the browser and reopened automatically.
+
+**Upgrading an existing install:** nothing to run. On the first request after deploy, existing tasks
+and time entries are moved into a project called **Docbook**, with all current employees as members
+(see `src/services/projects.js`). It is idempotent and tracked in the `meta` collection.
+New employees are not added to projects automatically: add them from a project's **Members** tab.

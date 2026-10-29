@@ -15,13 +15,23 @@ exports.createTask = async (req, res) => {
 
   if (!title || !DAY_REGEX.test(deadline)) return res.status(400).json({ error: "Invalid task details" });
 
+  const projectId = str(req.body.projectId, 64);
   const db = await getDB();
+
+  const project = await db.collection("projects").findOne({ _id: projectId });
+  if (!project) return res.status(400).json({ error: "Please choose a valid project" });
+  if (project.status === "archived") return res.status(400).json({ error: "This project is archived" });
+
   const employeeExists = await db.collection("users").findOne({ _id: assignee, role: "employee" });
   if (!employeeExists) return res.status(400).json({ error: "Assignee must be an active employee" });
+  if (!(project.members || []).includes(assignee)) {
+    return res.status(400).json({ error: "Assignee is not a member of this project" });
+  }
 
   await db.collection("tasks").insertOne({
     _id: id,
     title,
+    projectId,
     assignee,
     deadline,
     type: TASK_TYPES.includes(type) ? type : "Mobile App Development",
@@ -47,14 +57,19 @@ exports.updateTask = async (req, res) => {
     if (str(req.body.title, 200)) update.title = str(req.body.title, 200);
     if (DAY_REGEX.test(req.body.deadline)) update.deadline = req.body.deadline;
     if (TASK_TYPES.includes(req.body.type)) update.type = req.body.type;
-    if (req.body.assignee && (await db.collection("users").findOne({ _id: req.body.assignee }))) {
+    if (req.body.assignee) {
+      const project = await db.collection("projects").findOne({ _id: cur.projectId });
+      const emp = await db.collection("users").findOne({ _id: req.body.assignee, role: "employee" });
+      if (!emp || !project || !(project.members || []).includes(emp._id)) {
+        return res.status(400).json({ error: "Assignee must be an employee in this project" });
+      }
       update.assignee = req.body.assignee;
     }
   } else if (cur.assignee !== req.u.id) {
     return res.status(403).json({ error: "Not allowed to edit someone else's task" });
   }
 
-  await col.updateOne({ _id: req.params.id }, { $set: update });
+  if (Object.keys(update).length) await col.updateOne({ _id: req.params.id }, { $set: update });
   res.json({ ok: 1 });
 };
 
