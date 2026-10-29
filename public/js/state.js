@@ -23,8 +23,12 @@ export const TYPES = TASK_TYPES;
 
 export const S = {
   users: [],
+  projects: [],
   tasks: [],
   sessions: [],
+  projectId: null, // currently opened project (null = Projects home)
+  projectsRestored: false,
+  showProjForm: false,
   me: null,
   tab: null,
   ready: 0,
@@ -54,11 +58,34 @@ export function saveTokenToStorage(token, id) {
   } catch (e) {}
 }
 
+// ---- Selected project is remembered per user, so reopening the app lands inside it.
+const projectKey = (userId) => "tc_project_" + userId;
+
+export function saveProjectSelection(userId, projectId) {
+  S.projectId = projectId || null;
+  try {
+    if (projectId) localStorage.setItem(projectKey(userId), projectId);
+    else localStorage.removeItem(projectKey(userId));
+  } catch (e) {}
+}
+
+export function loadProjectSelection(userId) {
+  try {
+    return localStorage.getItem(projectKey(userId));
+  } catch (e) {
+    return null;
+  }
+}
+
 export function clearTokenStorage() {
   TOK = null;
   S.me = null;
   S.tab = null;
   S.users = [];
+  S.projects = [];
+  S.projectId = null;
+  S.projectsRestored = false;
+  S.showProjForm = false;
   try {
     localStorage.removeItem("tc_tok");
     localStorage.removeItem("tc_me");

@@ -1,5 +1,5 @@
-import { S, clearTokenStorage, TASK_TYPES, TYPES, EMPLOYEE_ROLES, ROLES } from "./state.js";
-import { $, uid, user, active, weekStart, day, tname, hrs, worked, esc, tstate, withLoading } from "./utils.js";
+import { S, clearTokenStorage, saveProjectSelection, TASK_TYPES, TYPES, EMPLOYEE_ROLES, ROLES } from "./state.js";
+import { $, uid, user, active, weekStart, day, tname, hrs, worked, esc, tstate, withLoading, cur, pname, pSessions } from "./utils.js";
 import { db, authenticate } from "./api.js";
 import { toast } from "./toast.js";
 import { drawDashboardCharts } from "./charts.js";
@@ -348,7 +348,12 @@ export function bindEvents(me) {
 
   // Sidebar controls
   on("#sideBtnClockIn", () => {
-    S.tab = "track";
+    if (S.projectId) {
+      S.tab = "track";
+    } else {
+      toast.info("Open a project and start your shift from its Time Tracker.", "Choose a Project");
+      S.tab = "projects";
+    }
     window.dispatchEvent(new CustomEvent("app:render"));
   });
 
@@ -418,6 +423,7 @@ export function bindEvents(me) {
       try {
         await db.doc("sessions/" + uid()).set({
           uid: me.id,
+          projectId: S.projectId,
           type: workType || defaultType,
           taskId: chosenTask,
           start: Date.now(),
@@ -532,6 +538,7 @@ export function bindEvents(me) {
       try {
         await db.doc("tasks/" + uid()).set({
           title: t,
+          projectId: S.projectId,
           assignee: a,
           deadline: d,
           type: type,
@@ -745,7 +752,8 @@ export function bindEvents(me) {
   // Export CSV
   on("#csv", () => {
     const adm = me.role === "admin";
-    const rows = (adm ? S.sessions : S.sessions.filter((x) => x.uid === me.id && x.start >= weekStart())).sort(
+    const base = pSessions();
+    const rows = (adm ? base : base.filter((x) => x.uid === me.id && x.start >= weekStart())).sort(
       (a, b) => b.start - a.start
     );
     if (!rows.length) {
@@ -754,8 +762,9 @@ export function bindEvents(me) {
     }
     const q = (v) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
     const csv = [
-      "Employee,Date,Work type,Task,Clock in,Clock out,Break minutes,Hours",
+      "Project,Employee,Date,Work type,Task,Clock in,Clock out,Break minutes,Hours",
       ...rows.map((x) => [
+        pname(x.projectId),
         user(x.uid)?.name,
         day(x.start),
         x.type,
@@ -769,9 +778,173 @@ export function bindEvents(me) {
 
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = "teamclock_report.csv";
+    const slug = (cur()?.name || "all_projects").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+    a.download = `teamclock_${slug || "report"}.csv`;
     a.click();
     toast.success("Timesheet report downloaded successfully.", "Export Ready");
+  });
+
+  // ================= PROJECTS =================
+  const openProject = (id) => {
+    if (!id) return;
+    saveProjectSelection(me.id, id);
+    S.tab = "dashboard";
+    window.dispatchEvent(new CustomEvent("app:render"));
+  };
+
+  document.querySelectorAll("[data-open-project]").forEach((card) => {
+    card.onclick = () => openProject(card.dataset.openProject);
+    card.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openProject(card.dataset.openProject);
+      }
+    };
+  });
+
+  on("#btnAllProjects", () => {
+    saveProjectSelection(me.id, null);
+    S.tab = "projects";
+    window.dispatchEvent(new CustomEvent("app:render"));
+  });
+
+  on("#btnNewProject", () => {
+    S.showProjForm = !S.showProjForm;
+    window.dispatchEvent(new CustomEvent("app:render"));
+  });
+
+  on("#pcCancel", () => {
+    S.showProjForm = false;
+    window.dispatchEvent(new CustomEvent("app:render"));
+  });
+
+  const checkedValues = (name) =>
+    Array.from(document.querySelectorAll(`input[name='${name}']:checked`)).map((cb) => cb.value);
+
+  on("#pc", async () => {
+    const name = $("#pn") ? $("#pn").value.trim() : "";
+    const start = $("#ps") ? $("#ps").value : "";
+    const end = $("#pe") ? $("#pe").value : "";
+
+    if (!name) {
+      toast.warning("Please enter a project name.", "Name Required");
+      $("#pn")?.focus();
+      return;
+    }
+    if (start && end && end < start) {
+      toast.warning("The end date can't be before the start date.", "Check Dates");
+      return;
+    }
+
+    await withLoading("#pc", async () => {
+      try {
+        const id = uid();
+        await db.doc("projects/" + id).set({
+          name,
+          description: $("#pd") ? $("#pd").value.trim() : "",
+          start,
+          end,
+          members: checkedValues("projMember")
+        });
+        S.showProjForm = false;
+        toast.success(`Project "${name}" created.`, "Project Created");
+        openProject(id);
+      } catch (err) {
+        toast.error(err.message || "Failed to create project");
+      }
+    });
+  });
+
+  on("#pdSave", async () => {
+    const p = cur();
+    if (!p) return;
+    const name = $("#pdName") ? $("#pdName").value.trim() : "";
+    const start = $("#pdStart") ? $("#pdStart").value : "";
+    const end = $("#pdEnd") ? $("#pdEnd").value : "";
+
+    if (!name) {
+      toast.warning("Project name can't be empty.", "Name Required");
+      return;
+    }
+    if (start && end && end < start) {
+      toast.warning("The end date can't be before the start date.", "Check Dates");
+      return;
+    }
+
+    await withLoading("#pdSave", async () => {
+      try {
+        await db.doc("projects/" + p.id).update({
+          name,
+          description: $("#pdDesc") ? $("#pdDesc").value.trim() : "",
+          start,
+          end
+        });
+        toast.success("Project details saved.", "Saved");
+      } catch (err) {
+        toast.error(err.message || "Failed to save project");
+      }
+    });
+  });
+
+  on("#memSave", async () => {
+    const p = cur();
+    if (!p) return;
+    await withLoading("#memSave", async () => {
+      try {
+        await db.doc("projects/" + p.id).update({ members: checkedValues("memMember") });
+        toast.success("Project members updated.", "Saved");
+      } catch (err) {
+        toast.error(err.message || "Failed to update members");
+      }
+    });
+  });
+
+  on("#pArchive", async () => {
+    const p = cur();
+    if (!p) return;
+    const archiving = p.status !== "archived";
+    const ok = await toast.confirm({
+      title: archiving ? "Archive Project" : "Restore Project",
+      message: archiving
+        ? `"${p.name}" will become read-only: no new tasks or shifts. All history is kept.`
+        : `"${p.name}" will become active again.`,
+      confirmText: archiving ? "Archive" : "Restore",
+      isDanger: archiving
+    });
+    if (!ok) return;
+
+    await withLoading("#pArchive", async () => {
+      try {
+        await db.doc("projects/" + p.id).update({ status: archiving ? "archived" : "active" });
+        toast.success(archiving ? "Project archived." : "Project restored.");
+      } catch (err) {
+        toast.error(err.message || "Failed to update project");
+      }
+    });
+  });
+
+  on("#pDelete", async () => {
+    const p = cur();
+    if (!p) return;
+    const ok = await toast.confirm({
+      title: "Delete Project",
+      message: `Permanently delete "${p.name}"? This only works if it has no tasks or time entries.`,
+      confirmText: "Delete",
+      isDanger: true
+    });
+    if (!ok) return;
+
+    await withLoading("#pDelete", async () => {
+      try {
+        await db.doc("projects/" + p.id).delete();
+        saveProjectSelection(me.id, null);
+        S.tab = "projects";
+        toast.info("Project deleted.");
+        window.dispatchEvent(new CustomEvent("app:render"));
+      } catch (err) {
+        toast.error(err.message || "Failed to delete project");
+      }
+    });
   });
 
   // Chart Filter Dropdown

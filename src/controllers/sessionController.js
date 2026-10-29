@@ -11,6 +11,22 @@ exports.clockIn = async (req, res) => {
   const db = await getDB();
   const col = db.collection("sessions");
 
+  const projectId = str(req.body.projectId, 64);
+  const project = await db.collection("projects").findOne({ _id: projectId });
+  if (!project) return res.status(400).json({ error: "Please choose a project to clock in to" });
+  if (project.status === "archived") return res.status(400).json({ error: "This project is archived" });
+  if (req.u.role !== "admin" && !(project.members || []).includes(req.u.id)) {
+    return res.status(403).json({ error: "You are not a member of this project" });
+  }
+
+  const taskId = str(req.body.taskId, 150); // may be a task id or free-typed task text
+  if (taskId) {
+    const linked = await db.collection("tasks").findOne({ _id: taskId }, { projection: { projectId: 1 } });
+    if (linked && linked.projectId !== projectId) {
+      return res.status(400).json({ error: "That task belongs to a different project" });
+    }
+  }
+
   if (await col.findOne({ uid: req.u.id, end: null })) {
     return res.status(400).json({ error: "You are already clocked in" });
   }
@@ -18,8 +34,9 @@ exports.clockIn = async (req, res) => {
   await col.insertOne({
     _id: id,
     uid: req.u.id,
+    projectId,
     type: req.body.type,
-    taskId: str(req.body.taskId, 150), // Increased from 24 to 150 characters for custom task text
+    taskId, // up to 150 characters to allow custom task text
     start: Date.now(),
     end: null,
     breaks: []

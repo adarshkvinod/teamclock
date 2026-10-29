@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const { getDB } = require("../config/db");
 const { SECRET } = require("../config/constants");
+const { ensureProjects } = require("../services/projects");
 
 const pub = ({ _id, hash, ...r }) => ({ id: _id, ...r });
 const rid = () => crypto.randomBytes(6).toString("hex");
@@ -58,11 +59,24 @@ exports.getData = async (req, res) => {
   const db = await getDB();
   const isAdmin = req.u.role === "admin";
 
+  await ensureProjects(db); // one-time move of legacy data into the Docbook project
+
+  // Admin sees every project; an employee only sees projects they are a member of.
+  const projects = await db
+    .collection("projects")
+    .find(isAdmin ? {} : { members: req.u.id })
+    .sort({ created: 1 })
+    .toArray();
+  const projectIds = projects.map((p) => p._id);
+
   const users = (await db.collection("users").find().toArray()).map((u) =>
     isAdmin ? pub(u) : { id: u._id, name: u.name, role: u.role, workType: u.workType }
   );
-  const tasks = await db.collection("tasks").find(isAdmin ? {} : { assignee: req.u.id }).toArray();
+  const tasks = await db
+    .collection("tasks")
+    .find(isAdmin ? {} : { assignee: req.u.id, projectId: { $in: projectIds } })
+    .toArray();
   const sessions = await db.collection("sessions").find(isAdmin ? {} : { uid: req.u.id }).sort({ start: -1 }).limit(3000).toArray();
 
-  res.json({ users, tasks: tasks.map(pub), sessions: sessions.map(pub) });
+  res.json({ users, projects: projects.map(pub), tasks: tasks.map(pub), sessions: sessions.map(pub) });
 };
