@@ -27,3 +27,17 @@ in the browser and reopened automatically.
 and time entries are moved into a project called **Docbook**, with all current employees as members
 (see `src/services/projects.js`). It is idempotent and tracked in the `meta` collection.
 New employees are not added to projects automatically: add them from a project's **Members** tab.
+
+## Team features
+- **Task board:** Board / Table / Calendar views; filter by employee, sprint, priority, category, overdue and free-text search; CSV export.
+- **Task details:** priority, description, labels, hour estimate, checklist, comments with @mentions, activity history and time logged. Open any card to see them.
+- **Sprints:** plan, start and complete sprints per project; backlog; burndown chart; velocity; unfinished tasks carry over or return to the backlog.
+- **Project chat:** per-project channel with @mentions, edit/delete and unread badges (polls every few seconds; no websockets needed on Vercel).
+- **Notifications:** bell for assignments, comments, mentions, sprint changes and project invites.
+- **Reports:** hours by member/category, task status, weekly throughput, on-time delivery, team summary (CSV export).
+- **Time tracking:** manual time entries, timesheet range/employee filters, one-click timer from a task card.
+- **Accounts:** employees can change their own password; "My Tasks" shows work across all projects.
+
+Employees can see every task in the projects they belong to (view-only for teammates' tasks) and can add tasks for themselves.
+Time sessions stay private to each employee; the admin sees all.
+Indexes for the new collections are created automatically on first connection.

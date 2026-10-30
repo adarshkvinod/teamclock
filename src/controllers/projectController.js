@@ -1,6 +1,7 @@
 const { getDB } = require("../config/db");
 const { PROJECT_STATUS, DAY_REGEX, ID_REGEX } = require("../config/constants");
 const { ensureProjects } = require("../services/projects");
+const { notify, logActivity } = require("../services/collab");
 
 const str = (v, max = 80) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
@@ -44,6 +45,7 @@ exports.createProject = async (req, res) => {
   if (await col.findOne({ _id: id })) return res.status(400).json({ error: "Project ID already exists" });
   if (await nameTaken(col, name)) return res.status(400).json({ error: "A project with this name already exists" });
 
+  const members = await cleanMembers(db, req.body.members);
   await col.insertOne({
     _id: id,
     name,
@@ -51,9 +53,11 @@ exports.createProject = async (req, res) => {
     status: "active",
     start,
     end,
-    members: await cleanMembers(db, req.body.members),
+    members,
     created: Date.now()
   });
+  await notify(db, { uids: members, from: req.u.id, projectId: id, kind: "project", tab: "dashboard", text: `You were added to ${name}` });
+  await logActivity(db, { projectId: id, uid: req.u.id, kind: "project", text: `created the project` });
 
   res.json({ ok: 1 });
 };
@@ -104,6 +108,10 @@ exports.updateProject = async (req, res) => {
       }
     }
     update.members = members;
+    const added = members.filter((m) => !(cur.members || []).includes(m));
+    if (added.length) {
+      await notify(db, { uids: added, from: req.u.id, projectId: cur._id, kind: "project", tab: "dashboard", text: `You were added to ${update.name || cur.name}` });
+    }
   }
 
   if (Object.keys(update).length) await col.updateOne({ _id: cur._id }, { $set: update });
@@ -127,5 +135,9 @@ exports.deleteProject = async (req, res) => {
   }
 
   await db.collection("projects").deleteOne({ _id: id });
+  // Tidy up the project's collaboration data (sprints, chat, activity, read markers)
+  await Promise.all(
+    ["sprints", "messages", "activity", "reads", "notifications"].map((c) => db.collection(c).deleteMany({ projectId: id }))
+  );
   res.json({ ok: 1 });
 };

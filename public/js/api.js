@@ -51,7 +51,15 @@ export async function loadData(isBackground = false) {
     projects: (j.projects || []).map(
       (p) => p.id + p.name + p.status + (p.description || "") + (p.start || "") + (p.end || "") + (p.members || []).join(",")
     ),
-    tasks: (j.tasks || []).map((t) => t.id + t.status + t.deadline + t.assignee + t.projectId),
+    tasks: (j.tasks || []).map(
+      (t) =>
+        [t.id, t.title, t.status, t.deadline, t.assignee, t.projectId, t.priority, t.sprintId, t.estimate, t.type, (t.labels || []).join("|"),
+         (t.subtasks || []).map((s) => (s.done ? 1 : 0)).join("")].join("~")
+    ),
+    sprints: (j.sprints || []).map((s) => [s.id, s.name, s.status, s.start, s.end, s.goal].join("~")),
+    notifications: (j.notifications || []).map((n) => n.id + (n.read ? 1 : 0)),
+    // while the chat is open its own poller marks messages read, so ignore that project's counter
+    unread: Object.entries(j.unread || {}).filter(([pid]) => !(S.tab === "chat" && pid === S.projectId)),
     sessionsCount: (j.sessions || []).length,
     activeSession: (j.sessions || []).find((s) => !s.end)
   });
@@ -66,7 +74,7 @@ export async function loadData(isBackground = false) {
     const activeEl = document.activeElement;
     const isTyping = activeEl && /^(INPUT|SELECT|TEXTAREA)$/.test(activeEl.tagName);
     const isModalOpen = document.querySelector(
-      ".prompt-modal-overlay.open, .confirm-overlay.open, .status-dropdown.open"
+      ".prompt-modal-overlay.open, .confirm-overlay.open, .status-dropdown.open, .tc-modal-overlay.open, .td-overlay.open, .notif-menu.open"
     );
     if (isTyping || isModalOpen) {
       return; // Defer until the user is done interacting
@@ -75,6 +83,7 @@ export async function loadData(isBackground = false) {
 
   lastDataSignature = newSignature;
   Object.assign(S, j, { ready: 7 });
+  if (S.tab === "chat" && S.projectId) delete S.unread[S.projectId];
 
   if (!user(S.me)) {
     clearTokenStorage();

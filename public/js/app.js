@@ -1,7 +1,7 @@
 import { S, TOK, loadTokenFromStorage, loadTokenStorage } from "./state.js";
 import { $, dur, worked, active, user } from "./utils.js";
 import { API, loadData } from "./api.js";
-import { drawDashboardCharts, clearCharts } from "./charts.js";
+import { drawDashboardCharts, drawSprintCharts, drawReportCharts, clearCharts } from "./charts.js";
 import {
   layoutView,
   dashboardView,
@@ -11,6 +11,10 @@ import {
   sheetView,
   projectsView,
   membersView,
+  sprintsView,
+  chatView,
+  reportsView,
+  myTasksView,
   loginView,
   setupView
 } from "./views.js";
@@ -53,7 +57,7 @@ function render() {
   const adm = me.role === "admin";
 
   // Keep the tab consistent with the scope: project tabs need an open project.
-  const PROJECT_TABS = ["dashboard", "tasks", "track", "members"];
+  const PROJECT_TABS = ["dashboard", "tasks", "track", "members", "sprints", "chat", "reports"];
   if (!S.projectId && (!S.tab || PROJECT_TABS.includes(S.tab))) S.tab = "projects";
   if (S.projectId && (!S.tab || S.tab === "projects")) S.tab = "dashboard";
   if (S.tab === "team" && !adm) S.tab = S.projectId ? "dashboard" : "projects";
@@ -65,6 +69,18 @@ function render() {
       break;
     case "members":
       content = membersView(adm, me);
+      break;
+    case "sprints":
+      content = sprintsView(adm, me);
+      break;
+    case "chat":
+      content = chatView(me);
+      break;
+    case "reports":
+      content = reportsView(adm, me);
+      break;
+    case "mytasks":
+      content = myTasksView(adm, me);
       break;
     case "dashboard":
       content = dashboardView(me);
@@ -91,6 +107,8 @@ function render() {
   if (S.tab === "dashboard") {
     drawDashboardCharts();
   }
+  if (S.tab === "sprints") drawSprintCharts();
+  if (S.tab === "reports") drawReportCharts();
 }
 
 window.addEventListener("app:render", render);

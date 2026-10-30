@@ -119,3 +119,121 @@ export async function withLoading(btnOrSelector, asyncFn) {
     setButtonLoading(btn, false);
   }
 }
+
+// ================= TEAM FEATURES HELPERS =================
+export const PRIORITY_CLASS = { Low: "low", Medium: "medium", High: "high", Urgent: "urgent" };
+export const prio = (t) => t?.priority || "Medium";
+
+export const sprintsOf = (projectId = S.projectId) =>
+  (S.sprints || []).filter((s) => s.projectId === projectId).sort((a, b) => a.start.localeCompare(b.start));
+export const sprint = (id) => (S.sprints || []).find((s) => s.id === id);
+export const activeSprint = (projectId = S.projectId) => sprintsOf(projectId).find((s) => s.status === "active");
+
+export const initial = (name) => String(name || "?").trim().charAt(0).toUpperCase() || "?";
+
+// "5m ago", "2h ago", "Oct 12"
+export const ago = (ts) => {
+  const d = Date.now() - ts;
+  if (d < 45e3) return "just now";
+  if (d < 36e5) return Math.round(d / 6e4) + "m ago";
+  if (d < 864e5) return Math.round(d / 36e5) + "h ago";
+  if (d < 6048e5) return Math.round(d / 864e5) + "d ago";
+  return new Date(ts).toLocaleDateString([], { month: "short", day: "numeric" });
+};
+
+export const clock = (ts) => new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+// Escape text, then highlight @mentions and keep line breaks
+export const richText = (text) =>
+  esc(text)
+    .replace(/@([a-zA-Z0-9._-]{2,40})/g, (m, u) => {
+      const hit = (S.users || []).find((x) => (x.username || "").toLowerCase() === u.toLowerCase());
+      return hit ? `<span class="mention${hit.id === S.me ? " me" : ""}">@${u}</span>` : m;
+    })
+    .replace(/\n/g, "<br>");
+
+export const openSubtasks = (t) => (t.subtasks || []).filter((s) => !s.done).length;
+
+// Premium dropdown markup used across filters / forms. options: [{val,label}]
+export const customSelect = ({ id = "", data = "", options, value, width = "" }) => {
+  const cur = options.find((o) => String(o.val) === String(value)) || options[0] || { label: "", val: "" };
+  const attrs = (id ? ` id="${id}"` : "") + (data ? ` data-filter="${data}"` : "");
+  return `
+    <div class="custom-select-wrap" ${width ? `style="min-width:${width}"` : ""}>
+      <input type="hidden"${attrs} value="${esc(cur.val)}">
+      <button type="button" class="custom-select-trigger">
+        <span class="custom-select-label">${esc(cur.label)}</span>
+        <svg class="custom-select-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="custom-select-menu">
+        ${options
+          .map((o) => {
+            const sel = String(o.val) === String(cur.val);
+            return `<button type="button" class="custom-select-opt ${sel ? "selected" : ""}" data-val="${esc(o.val)}"><span>${esc(o.label)}</span>${
+              sel ? '<svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>' : ""
+            }</button>`;
+          })
+          .join("") || '<div class="custom-select-empty">Nothing to choose</div>'}
+      </div>
+    </div>`;
+};
+
+// ---- Timesheet range / employee filtering shared by the table and the CSV export
+export const rangeBounds = (range) => {
+  const ws = weekStart();
+  if (range === "lastweek") return [ws - 7 * 864e5, ws];
+  if (range === "month") return [Date.now() - 30 * 864e5, Infinity];
+  if (range === "all") return [0, Infinity];
+  return [ws, Infinity];
+};
+
+export const sheetRangeValue = (adm) => S.sheetRange ?? (adm ? "all" : "week");
+
+export const sheetRows = (adm, me) => {
+  const [from, to] = rangeBounds(sheetRangeValue(adm));
+  let rows = pSessions().filter((x) => x.start >= from && x.start < to);
+  if (!adm) rows = rows.filter((x) => x.uid === me.id);
+  else if (S.sheetEmp !== "all") rows = rows.filter((x) => x.uid === S.sheetEmp);
+  return rows.sort((a, b) => b.start - a.start);
+};
+
+// ---- Task board filtering
+export const taskFilterWho = (adm, me) => S.tf.assignee ?? (adm ? "all" : me.id);
+
+export const filterTasks = (tasks, adm, me) => {
+  const f = S.tf;
+  const who = taskFilterWho(adm, me);
+  const q = f.q.trim().toLowerCase();
+  const today = day(Date.now());
+  const active = activeSprint();
+
+  return tasks.filter((t) => {
+    if (who !== "all" && t.assignee !== who) return false;
+    if (f.sprint === "backlog" && t.sprintId) return false;
+    if (f.sprint === "active" && (!active || t.sprintId !== active.id)) return false;
+    if (f.sprint !== "all" && f.sprint !== "backlog" && f.sprint !== "active" && t.sprintId !== f.sprint) return false;
+    if (f.priority !== "all" && prio(t) !== f.priority) return false;
+    if (f.type !== "all" && t.type !== f.type) return false;
+    if (f.overdue && !(t.status !== "Done" && t.deadline < today)) return false;
+    if (q) {
+      const hay = [t.title, t.description, t.type, user(t.assignee)?.name, ...(t.labels || [])].join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+};
+
+export const filtersActive = (adm, me) => {
+  const f = S.tf;
+  return !!(f.q || f.sprint !== "all" || f.priority !== "all" || f.type !== "all" || f.overdue || taskFilterWho(adm, me) !== (adm ? "all" : me.id));
+};
+
+export const csvCell = (v) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+export const downloadCsv = (name, rows) => {
+  const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+};

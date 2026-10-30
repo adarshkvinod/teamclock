@@ -37,6 +37,8 @@ module.exports = {
 
   STATUS: ["To do", "In progress", "Done"],
   PROJECT_STATUS: ["active", "archived"],
+  PRIORITIES: ["Low", "Medium", "High", "Urgent"],
+  SPRINT_STATUS: ["planned", "active", "completed"],
   DOCBOOK_ID: "docbook",
   DAY_REGEX: /^\d{4}-\d{2}-\d{2}$/,
   ID_REGEX: /^[a-zA-Z0-9_-]{4,64}$/
