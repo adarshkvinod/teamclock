@@ -351,3 +351,78 @@
   .cal-chip { font-size: 10px; }
   .notif-menu { position: fixed; right: 12px; left: 12px; top: 70px; width: auto; max-width: none; }
 }
+
+/* ================================================================
+   APP SHELL: sidebar and content scroll independently,
+   the shift timer floats at the bottom of the sidebar
+   ================================================================ */
+html, body { overflow: hidden; }
+
+.dashboard-layout {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  padding: 0;                 /* spacing moves into the scroll area so the timer can float */
+  overflow: hidden;
+  justify-content: flex-start;
+}
+
+.sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px 18px 190px;   /* bottom room so the last menu item clears the floating timer */
+  scrollbar-width: thin;
+  scrollbar-color: #d5dde6 transparent;
+}
+.sidebar-scroll::-webkit-scrollbar { width: 6px; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: #d5dde6; border-radius: 99px; }
+.sidebar-scroll::-webkit-scrollbar-thumb:hover { background: #b8c4d0; }
+
+/* soft fade so menu items slide neatly under the floating timer */
+.sidebar::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 190px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--bg-sidebar) 62%);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.sidebar-live-widget {
+  position: absolute;
+  left: 14px; right: 14px; bottom: 14px;
+  margin: 0;
+  z-index: 5;
+  box-shadow: 0 14px 34px -8px rgba(7, 25, 17, 0.55), 0 2px 6px rgba(7, 25, 17, 0.25);
+}
+
+.main-wrapper {
+  height: 100%;
+  max-height: none;
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #cdd6df transparent;
+}
+.main-wrapper::-webkit-scrollbar { width: 8px; }
+.main-wrapper::-webkit-scrollbar-thumb { background: #cdd6df; border-radius: 99px; }
+.main-wrapper::-webkit-scrollbar-thumb:hover { background: #aebbc8; }
+
+/* chat fills the visible content area instead of guessing the page height */
+.chat-shell { height: calc(100dvh - 150px); }
+
+@media (max-width: 1024px) {
+  .sidebar-scroll { padding: 16px 10px 24px; }   /* icon-only sidebar: timer is hidden */
+  .sidebar::after { display: none; }
+}
