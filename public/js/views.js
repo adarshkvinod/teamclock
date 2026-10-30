@@ -95,7 +95,7 @@ export function layoutView(me, currentContent) {
   return `
     <div class="dashboard-layout">
       <aside class="sidebar">
-        <div>
+        <div class="sidebar-scroll">
           <div class="brand-wrapper">
             <div class="brand-badge">T</div>
             <div class="brand-title">TeamClock</div>
