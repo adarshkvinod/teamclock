@@ -1,3 +1,4 @@
+import { bindExtraEvents } from "./events-extra.js";
 import { S, clearTokenStorage, saveProjectSelection, TASK_TYPES, TYPES, EMPLOYEE_ROLES, ROLES } from "./state.js";
 import { $, uid, user, active, weekStart, day, tname, hrs, worked, esc, tstate, withLoading, cur, pname, pSessions } from "./utils.js";
 import { db, authenticate } from "./api.js";
@@ -229,6 +230,7 @@ function bindSolidKanbanDrag() {
 
       const taskId = card.dataset.taskId;
       if (!taskId) return;
+      if (card.dataset.canMove !== "1") return; // teammates' tasks are view-only
 
       const rect = card.getBoundingClientRect();
       const startX = e.clientX;
@@ -283,6 +285,7 @@ function bindSolidKanbanDrag() {
         document.body.classList.remove("is-kanban-dragging-active");
 
         if (!isDragging) return;
+        S._dragEnd = Date.now(); // lets the card ignore the click that follows a drag
 
         if (floatingCard) {
           floatingCard.remove();
@@ -513,47 +516,7 @@ export function bindEvents(me) {
     };
   }
 
-  // Task creation with field validation
-  on("#ac", async () => {
-    const t = $("#nt") ? $("#nt").value.trim() : "";
-    const a = $("#na") ? $("#na").value : "";
-    const d = $("#nd") ? $("#nd").value : "";
-    const type = $("#ntype") ? $("#ntype").value : (TASK_TYPES || TYPES)[0];
-
-    if (!t) {
-      toast.warning("Please enter a task title.", "Title Required");
-      $("#nt")?.focus();
-      return;
-    }
-    if (!a) {
-      toast.warning("Please select an assignee.", "Assignee Required");
-      return;
-    }
-    if (!d) {
-      toast.warning("Please choose a deadline date.", "Deadline Required");
-      return;
-    }
-
-    await withLoading("#ac", async () => {
-      try {
-        await db.doc("tasks/" + uid()).set({
-          title: t,
-          projectId: S.projectId,
-          assignee: a,
-          deadline: d,
-          type: type,
-          status: "To do",
-          created: Date.now()
-        });
-        if ($("#nt")) $("#nt").value = "";
-        toast.success(`Task "${t}" (${type}) has been assigned.`, "Task Created");
-      } catch (err) {
-        toast.error(err.message || "Failed to assign task");
-      }
-    });
-  });
-
-  // Task View Mode Switcher (Kanban vs Table)
+  // Task View Mode Switcher (Board / Table / Calendar)
   document.querySelectorAll("[data-view-mode]").forEach((btn) => {
     btn.onclick = () => {
       S.taskViewMode = btn.dataset.viewMode;
@@ -783,6 +746,8 @@ export function bindEvents(me) {
     a.click();
     toast.success("Timesheet report downloaded successfully.", "Export Ready");
   });
+
+  bindExtraEvents(me); // filters, task drawer, sprints, chat, reports, time entries
 
   // ================= PROJECTS =================
   const openProject = (id) => {

@@ -1,9 +1,15 @@
 import { S, EMPLOYEE_ROLES, TASK_TYPES, TYPES } from "./state.js";
-import { esc, user, tname, active, dur, hrs, worked, day, weekStart, tstate, getFormattedDate, cur, pTasks, pSessions, pname, pcolor, projectMembers } from "./utils.js";
+import { bellView } from "./notifications.js";
+import { dashboardExtras, activityItems } from "./views-extra.js";
+import { esc, user, tname, active, dur, hrs, worked, day, weekStart, tstate, getFormattedDate, cur, pTasks, pSessions, pname, pcolor, projectMembers, sheetRows, sheetRangeValue, customSelect } from "./utils.js";
 
 export function getPageTitle(tab) {
   switch (tab) {
     case "projects": return "Projects";
+    case "mytasks": return S.me && user(S.me)?.role === "admin" ? "All Tasks" : "My Tasks";
+    case "sprints": return "Sprints";
+    case "chat": return "Team Chat";
+    case "reports": return "Reports";
     case "dashboard": return "Productivity Report";
     case "tasks": return "Tasks & Deadlines";
     case "track": return "Time Tracker";
@@ -21,14 +27,19 @@ const ICONS = {
   track: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   sheet: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
   members: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  mytasks: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  sprints: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
+  chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  reports: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
   back: '<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>'
 };
 
-const navItem = (tab, label, icon = tab) => `
+const navItem = (tab, label, icon = tab, badge = 0) => `
   <li class="nav-item">
     <button data-t="${tab}" class="${S.tab === tab ? "active" : ""}">
       <svg viewBox="0 0 24 24">${ICONS[icon]}</svg>
       <span>${label}</span>
+      ${badge ? `<em class="nav-badge">${badge > 99 ? "99+" : badge}</em>` : ""}
     </button>
   </li>`;
 
@@ -66,14 +77,18 @@ export function layoutView(me, currentContent) {
       <ul class="nav-menu">
         ${navItem("dashboard", "Dashboard")}
         ${navItem("tasks", "Tasks &amp; Deadlines")}
+        ${navItem("sprints", "Sprints")}
+        ${navItem("chat", "Team Chat", "chat", S.tab === "chat" ? 0 : S.unread?.[p.id] || 0)}
         ${navItem("track", "Time Tracker")}
         ${navItem("sheet", "Timesheets")}
+        ${navItem("reports", "Reports")}
         ${navItem("members", "Members")}
       </ul>`
     : `
       <div class="nav-section-label">Menu</div>
       <ul class="nav-menu">
         ${navItem("projects", "Projects")}
+        ${navItem("mytasks", adm ? "All Tasks" : "My Tasks")}
         ${navItem("sheet", "All Timesheets")}
       </ul>`;
 
@@ -117,9 +132,10 @@ export function layoutView(me, currentContent) {
             <p>${p ? `<strong>${esc(p.name)}</strong> · ` : ""}${getFormattedDate()}</p>
           </div>
           <div class="topbar-actions">
+            ${bellView()}
             <div class="user-pill">
-              <div class="user-avatar">${esc(me.name.charAt(0))}</div>
-              <div class="user-info">
+              <div class="user-avatar" data-profile title="My account">${esc(me.name.charAt(0))}</div>
+              <div class="user-info" data-profile title="My account" style="cursor:pointer;">
                 <div class="user-name">${esc(me.name)}</div>
                 <div class="user-role">${adm ? "Admin Officer" : esc(me.workType || "Employee")}</div>
               </div>
@@ -429,269 +445,7 @@ export function dashboardView(me) {
         </div>
       </div>
     </div>
-  `;
-}
-
-export function tasksView(adm, me) {
-  const project = cur();
-  const archived = project?.status === "archived";
-  const emps = projectMembers(project); // only people on this project can be assigned
-  const allTasks = pTasks();
-  
-  // Scoped to current employee (or all for admin)
-  const ts = (adm ? allTasks : allTasks.filter((t) => t.assignee === me?.id)).sort(
-    (a, b) => a.deadline.localeCompare(b.deadline)
-  );
-  
-  const categories = TASK_TYPES || TYPES;
-  const defaultCategory = categories[0] || "Mobile App Development";
-  const defaultEmpId = emps.length ? emps[0].id : "";
-  const defaultEmpLabel = emps.length
-    ? `${emps[0].name} (${emps[0].workType || "Employee"})`
-    : "Select Assignee...";
-
-  if (!S.taskViewMode) S.taskViewMode = "kanban";
-  const isKanban = S.taskViewMode === "kanban";
-
-  const getStatusClass = (status) => {
-    if (status === "Done") return "done";
-    if (status === "In progress") return "progress";
-    return "todo";
-  };
-
-  const columns = [
-    { title: "To Do", key: "To do", dotColor: "#64748b" },
-    { title: "In Progress", key: "In progress", dotColor: "#0ea5e9" },
-    { title: "Done", key: "Done", dotColor: "#10b981" }
-  ];
-
-  return `
-    <div class="full-width-card">
-      ${archived ? `
-        <div class="project-notice">This project is archived. New tasks can't be created, but you can still review everything.</div>
-      ` : ""}
-      ${adm && !archived ? `
-        <h3 style="margin-bottom: 6px;">Assign New Task</h3>
-        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 18px;">Set task title, category, assignee, and deadline for <strong>${esc(project?.name || "this project")}</strong></p>
-        
-        <div class="form-grid-3">
-          <div class="input-group">
-            <label>Task Title</label>
-            <input id="nt" placeholder="e.g. Implement user authentication flow">
-          </div>
-
-          <div class="input-group">
-            <label>Task Category</label>
-            <div class="custom-select-wrap">
-              <input type="hidden" id="ntype" value="${esc(defaultCategory)}">
-              <button type="button" class="custom-select-trigger">
-                <span class="custom-select-label">${esc(defaultCategory)}</span>
-                <svg class="custom-select-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <div class="custom-select-menu">
-                ${categories.map((t, idx) => `
-                  <button type="button" class="custom-select-opt ${idx === 0 ? "selected" : ""}" data-val="${esc(t)}">
-                    <span>${esc(t)}</span>${idx === 0 ? `<svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
-                  </button>
-                `).join("")}
-              </div>
-            </div>
-          </div>
-
-          <div class="input-group">
-            <label>Assignee</label>
-            <div class="custom-select-wrap">
-              <input type="hidden" id="na" value="${esc(defaultEmpId)}">
-              <button type="button" class="custom-select-trigger">
-                <span class="custom-select-label">${esc(defaultEmpLabel)}</span>
-                <svg class="custom-select-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <div class="custom-select-menu">
-                ${emps.length ? emps.map((u, idx) => {
-                  const isSel = idx === 0;
-                  const label = `${u.name} (${u.workType || "Employee"})`;
-                  return `
-                    <button type="button" class="custom-select-opt ${isSel ? "selected" : ""}" data-val="${esc(u.id)}">
-                      <span>${esc(label)}</span>${isSel ? `<svg class="opt-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
-                    </button>
-                  `;
-                }).join("") : `<div class="custom-select-empty">No employees in this project yet. Add members in the Members tab.</div>`}
-              </div>
-            </div>
-          </div>
-
-          <div class="input-group">
-            <label>Deadline</label>
-            <div class="custom-datepicker-wrap" id="deadlinePickerWrap">
-              <input type="hidden" id="nd" value="${day(Date.now())}">
-              <button type="button" class="custom-datepicker-trigger" id="deadlinePickerBtn">
-                <span class="custom-datepicker-label" id="ndLabel">${day(Date.now())}</span>
-                <svg class="custom-datepicker-icon" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-              </button>
-              <div class="custom-datepicker-menu" id="deadlinePickerMenu"></div>
-            </div>
-          </div>
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 28px;">
-          <button class="btn-primary" id="ac">Create Task</button>
-          <span class="err" id="te" style="color: var(--accent-red); font-size: 12px;"></span>
-        </div>
-      ` : ""}
-
-      <div class="tasks-header-bar">
-        <div>
-          <h3>${adm ? "Team Tasks & Deadlines" : "My Assigned Tasks"} (${ts.length})</h3>
-          <p style="color: var(--text-muted); font-size: 13px; margin-top: 2px;">
-            ${adm ? "Manage, track, and update all team task states" : "Drag or move your assigned tasks across workflow stages"}
-          </p>
-        </div>
-        <div class="view-switcher-pill">
-          <button type="button" class="btn-view-mode ${isKanban ? "active" : ""}" data-view-mode="kanban">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><rect width="6" height="18" x="3" y="3" rx="1"/><rect width="6" height="12" x="15" y="3" rx="1"/></svg>
-            <span>Kanban Board</span>
-          </button>
-          <button type="button" class="btn-view-mode ${!isKanban ? "active" : ""}" data-view-mode="table">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 3h18v18H3zM3 9h18M3 15h18M9 3v18"/></svg>
-            <span>Table View</span>
-          </button>
-        </div>
-      </div>
-
-      ${isKanban ? `
-        <!-- ================= KANBAN BOARD ================= -->
-        <div class="kanban-board">
-          ${columns.map((col) => {
-            const colTasks = ts.filter((t) => (t.status || "To do") === col.key);
-            return `
-              <div class="kanban-column" data-col-status="${col.key}">
-                <div class="kanban-column-header">
-                  <div class="kanban-column-title">
-                    <span class="status-dot" style="background: ${col.dotColor};"></span>
-                    <span>${col.title}</span>
-                  </div>
-                  <span class="kanban-count-badge">${colTasks.length}</span>
-                </div>
-
-                <div class="kanban-column-body" data-status-col="${col.key}">
-                  ${colTasks.length ? colTasks.map((t) => {
-                    const [lbl, cls] = tstate(t);
-                    return `
-                      <div class="kanban-card" data-task-id="${t.id}">
-                        <div class="kanban-card-top">
-                          <span class="growth-badge subtle">${esc(t.type || "General")}</span>
-                          <span class="tag-status ${cls}">${lbl}</span>
-                        </div>
-
-                        <div class="kanban-card-title">${esc(t.title)}</div>
-
-                        <div class="kanban-card-meta">
-                          <div class="meta-pill meta-deadline">
-                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-                            ${t.deadline}
-                          </div>
-                          ${adm ? `
-                            <div class="meta-pill meta-assignee" title="Assignee">
-                              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                              ${esc(user(t.assignee)?.name || "Unassigned")}
-                            </div>
-                          ` : ""}
-                        </div>
-
-                        <div class="kanban-card-footer">
-                          <div class="kanban-quick-actions">
-                            ${col.key !== "To do" ? `
-                              <button type="button" class="btn-kanban-shift" data-move-task="${t.id}" data-move-to="To do" title="Move to To do">
-                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-                                <span>To do</span>
-                              </button>
-                            ` : ""}
-                            ${col.key !== "In progress" ? `
-                              <button type="button" class="btn-kanban-shift" data-move-task="${t.id}" data-move-to="In progress" title="Move to In progress">
-                                <span>In progress</span>
-                              </button>
-                            ` : ""}
-                            ${col.key !== "Done" ? `
-                              <button type="button" class="btn-kanban-shift" data-move-task="${t.id}" data-move-to="Done" title="Move to Done">
-                                <span>Done</span>
-                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-                              </button>
-                            ` : ""}
-                          </div>
-                          ${adm ? `
-                            <button class="btn-action-del-card" data-dt="${t.id}" title="Delete Task">
-                              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                            </button>
-                          ` : ""}
-                        </div>
-                      </div>
-                    `;
-                  }).join("") : `
-                    <div class="kanban-column-empty">
-                      <span>No tasks in ${col.title.toLowerCase()}</span>
-                    </div>
-                  `}
-                </div>
-              </div>
-            `;
-          }).join("")}
-        </div>
-      ` : `
-        <!-- ================= TABLE VIEW ================= -->
-        <div style="overflow-x: auto; margin-top: 14px;">
-          <table class="styled-table">
-            <thead>
-              <tr>
-                <th>Task</th>
-                <th>Category</th>
-                ${adm ? "<th>Assignee</th>" : ""}
-                <th>Deadline</th>
-                <th>Status</th>
-                <th>State</th>
-                ${adm ? "<th>Action</th>" : ""}
-              </tr>
-            </thead>
-            <tbody>
-              ${ts.length ? ts.map((t) => {
-                const [lbl, cls] = tstate(t);
-                const currentClass = getStatusClass(t.status);
-                return `
-                  <tr>
-                    <td style="font-weight: 600;">${esc(t.title)}</td>
-                    <td><span class="growth-badge subtle">${esc(t.type || "General")}</span></td>
-                    ${adm ? `<td>${esc(user(t.assignee)?.name || "Unassigned")}</td>` : ""}
-                    <td>${t.deadline}</td>
-                    <td>
-                      <div class="status-dropdown" data-task-id="${t.id}">
-                        <button type="button" class="status-dropdown-trigger status-trigger-${currentClass}">
-                          <span class="status-dot"></span>
-                          <span class="status-label-text">${esc(t.status)}</span>
-                          <svg class="status-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-                        </button>
-                        <div class="status-dropdown-menu">
-                          ${["To do", "In progress", "Done"].map((opt) => {
-                            const optClass = getStatusClass(opt);
-                            const isSelected = opt === t.status;
-                            return `
-                              <button type="button" class="status-option-btn ${isSelected ? "selected" : ""}" data-status-val="${opt}">
-                                <span class="status-dot status-trigger-${optClass}"></span>
-                                <span>${opt}</span>
-                                ${isSelected ? `<svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
-                              </button>
-                            `;
-                          }).join("")}
-                        </div>
-                      </div>
-                    </td>
-                    <td><span class="tag-status ${cls}">${lbl}</span></td>${adm ? `<td><button class="btn-action-del" data-dt="${t.id}">Delete</button></td>` : ""}
-                  </tr>
-                `;
-              }).join("") : '<tr><td colspan="7" style="text-align: center; color: var(--text-light);">No tasks found.</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-      `}
-    </div>
+    ${dashboardExtras(adm, me)}
   `;
 }
 
@@ -893,21 +647,33 @@ export function trackView(me) {
 }
 
 export function sheetView(adm, me) {
-  const ws = weekStart();
-  const base = pSessions();
   const showProj = !S.projectId; // the all-projects view needs a Project column
-  const rows = (adm ? base : base.filter((x) => x.uid === me.id && x.start >= ws)).sort(
-    (a, b) => b.start - a.start
-  );
+  const rows = sheetRows(adm, me);
+  const range = sheetRangeValue(adm);
+  const total = rows.reduce((a, x) => a + worked(x), 0);
+  const rangeOpts = [
+    { val: "week", label: "This week" },
+    { val: "lastweek", label: "Last week" },
+    { val: "month", label: "Last 30 days" },
+    { val: "all", label: "All time" }
+  ];
+  const empOpts = [{ val: "all", label: "All employees" }, ...S.users.filter((u) => u.role !== "admin").map((u) => ({ val: u.id, label: u.name }))];
+  const project = cur();
+  const canAdd = !!project && project.status !== "archived";
 
   return `
     <div class="full-width-card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <div>
-          <h3>${adm ? "Master Timesheets" : "My Weekly Timesheet"}</h3>
-          <p style="color: var(--text-muted); font-size: 12px;">Records of completed work shifts and break hours</p>
+          <h3>${adm ? "Master Timesheets" : "My Timesheet"}</h3>
+          <p style="color: var(--text-muted); font-size: 12px;">Records of completed work shifts and break hours · <strong>${hrs(total)} h</strong> in ${rows.length} entr${rows.length === 1 ? "y" : "ies"}</p>
         </div>
-        <button class="btn-primary" id="csv">Export CSV</button>
+        <div class="sheet-tools">
+          <div class="filter-select" style="min-width:150px;">${customSelect({ data: "sheetRange", options: rangeOpts, value: range })}</div>
+          ${adm ? `<div class="filter-select" style="min-width:170px;">${customSelect({ data: "sheetEmp", options: empOpts, value: S.sheetEmp })}</div>` : ""}
+          ${canAdd ? `<button class="select-filter" id="btnManualTime" type="button">+ Add Time</button>` : ""}
+          <button class="btn-primary" id="csv">Export CSV</button>
+        </div>
       </div>
 
       <div style="overflow-x: auto;">
@@ -931,7 +697,7 @@ export function sheetView(adm, me) {
                 <tr>
                   ${adm ? `<td style="font-weight: 600;">${esc(user(x.uid)?.name || "Unknown")}</td>` : ""}
                   ${showProj ? `<td>${esc(pname(x.projectId))}</td>` : ""}
-                  <td>${day(x.start)}</td>
+                  <td>${day(x.start)}${x.manual ? ' <span class="manual-tag" title="Added manually">manual</span>' : ""}</td>
                   <td><span class="growth-badge subtle">${esc(x.type)}</span></td>
                   <td>${esc(tname(x.taskId))}</td>
                   <td>${new Date(x.start).toLocaleTimeString([], { timeStyle: "short" })}</td>
@@ -963,12 +729,13 @@ export function projectsView(adm, me) {
   const emps = S.users.filter((u) => u.role !== "admin");
 
   const sessions = adm ? S.sessions : S.sessions.filter((x) => x.uid === me.id);
-  const openTasks = S.tasks.filter((t) => t.status !== "Done").length;
-  const overdue = S.tasks.filter((t) => tstate(t)[1] === "over").length;
+  const myTasks = adm ? S.tasks : S.tasks.filter((t) => t.assignee === me.id);
+  const openTasks = myTasks.filter((t) => t.status !== "Done").length;
+  const overdue = myTasks.filter((t) => tstate(t)[1] === "over").length;
   const weekHours = sessions.filter((x) => (x.end || Date.now()) >= wk).reduce((a, x) => a + worked(x), 0);
 
   const card = (p) => {
-    const ts = S.tasks.filter((t) => t.projectId === p.id);
+    const ts = myTasks.filter((t) => t.projectId === p.id);
     const done = ts.filter((t) => t.status === "Done").length;
     const late = ts.filter((t) => tstate(t)[1] === "over").length;
     const pct = ts.length ? Math.round((done / ts.length) * 100) : 0;
@@ -1235,3 +1002,4 @@ export function setupView() {
     </div>
   `;
 }
+export { tasksView, sprintsView, chatView, reportsView, myTasksView } from "./views-extra.js";

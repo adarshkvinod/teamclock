@@ -70,13 +70,59 @@ exports.getData = async (req, res) => {
   const projectIds = projects.map((p) => p._id);
 
   const users = (await db.collection("users").find().toArray()).map((u) =>
-    isAdmin ? pub(u) : { id: u._id, name: u.name, role: u.role, workType: u.workType }
+    isAdmin ? pub(u) : { id: u._id, name: u.name, username: u.username, role: u.role, workType: u.workType, roles: u.roles }
   );
+
+  // Employees see every task in the projects they belong to (needed for the team board);
+  // they can only change their own. Time sessions stay private to each employee.
   const tasks = await db
     .collection("tasks")
-    .find(isAdmin ? {} : { assignee: req.u.id, projectId: { $in: projectIds } })
+    .find(isAdmin ? {} : { projectId: { $in: projectIds } })
     .toArray();
   const sessions = await db.collection("sessions").find(isAdmin ? {} : { uid: req.u.id }).sort({ start: -1 }).limit(3000).toArray();
 
-  res.json({ users, projects: projects.map(pub), tasks: tasks.map(pub), sessions: sessions.map(pub) });
+  const sprints = await db
+    .collection("sprints")
+    .find(isAdmin ? {} : { projectId: { $in: projectIds } })
+    .sort({ start: 1 })
+    .toArray();
+
+  const notifications = await db.collection("notifications").find({ uid: req.u.id }).sort({ at: -1 }).limit(40).toArray();
+
+  // Unread chat messages per project
+  const unread = {};
+  for (const p of projects) {
+    const seen = await db.collection("reads").findOne({ _id: `${req.u.id}:${p._id}` });
+    const n = await db
+      .collection("messages")
+      .countDocuments({ projectId: p._id, at: { $gt: seen ? seen.at : 0 }, uid: { $ne: req.u.id }, deleted: { $ne: true } });
+    if (n) unread[p._id] = n;
+  }
+
+  res.json({
+    users,
+    projects: projects.map(pub),
+    tasks: tasks.map(pub),
+    sprints: sprints.map(pub),
+    sessions: sessions.map(pub),
+    notifications: notifications.map(pub),
+    unread
+  });
+};
+
+exports.changePassword = async (req, res) => {
+  const db = await getDB();
+  const col = db.collection("users");
+  const me = await col.findOne({ _id: req.u.id });
+  if (!me) return res.status(404).json({ error: "User not found" });
+
+  const current = typeof req.body.current === "string" ? req.body.current : "";
+  const next = typeof req.body.next === "string" ? req.body.next : "";
+
+  if (!(await bcrypt.compare(current, me.hash))) return res.status(400).json({ error: "Current password is incorrect" });
+  if (next.length < 4) return res.status(400).json({ error: "New password must be at least 4 characters" });
+  if (next === current) return res.status(400).json({ error: "New password must be different" });
+
+  await col.updateOne({ _id: me._id }, { $set: { hash: await bcrypt.hash(next, 10) } });
+  res.json({ ok: 1 });
 };
